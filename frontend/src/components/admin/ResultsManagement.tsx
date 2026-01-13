@@ -124,18 +124,14 @@ export const ResultsManagement: React.FC = () => {
         return
       }
 
-      // Fetch results for each student
+      // Get all student IDs
       const studentIds = studentsData.map((s) => s.id)
       
-      // Fetch all results and cocurricular results for these students
-      const [resultsResponse, cocurricularResponse] = await Promise.all([
-        Promise.all(studentIds.map(id => studentResultsApi.getAll({ student_id: id }))),
-        Promise.all(studentIds.map(id => cocurricularResultsApi.getAll({ student_id: id }))),
+      // Fetch all results in batch using the new optimized endpoints
+      const [allResults, allCocurricularResults] = await Promise.all([
+        studentResultsApi.getByStudents(studentIds, selectedSession || undefined),
+        cocurricularResultsApi.getByStudents(studentIds, selectedSession || undefined),
       ])
-
-      // Flatten results
-      const allResults = resultsResponse.flatMap(r => r.results || [])
-      const allCocurricularResults = cocurricularResponse.flatMap(r => r.results || [])
 
       // Process and combine data
       const studentsWithResults = studentsData.map((student) => {

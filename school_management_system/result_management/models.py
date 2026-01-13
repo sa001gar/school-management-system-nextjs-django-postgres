@@ -43,6 +43,23 @@ class StudentResult(models.Model):
     class Meta:
         db_table = 'student_results'
         unique_together = ['student', 'subject', 'session']
+        indexes = [
+            # Composite index for fetching results by session + student (most common)
+            models.Index(
+                fields=['session', 'student'],
+                name='idx_result_session_student'
+            ),
+            # Index for subject-based queries
+            models.Index(
+                fields=['session', 'subject'],
+                name='idx_result_session_subject'
+            ),
+            # Index for grade filtering
+            models.Index(
+                fields=['grade'],
+                name='idx_result_grade'
+            ),
+        ]
     
     def calculate_total_marks(self):
         """Calculate total obtained marks."""
@@ -114,6 +131,13 @@ class StudentCocurricularResult(models.Model):
     class Meta:
         db_table = 'student_cocurricular_results'
         unique_together = ['student', 'cocurricular_subject', 'session']
+        indexes = [
+            # Composite index for fetching by session + student
+            models.Index(
+                fields=['session', 'student'],
+                name='idx_cocurr_sess_stu'
+            ),
+        ]
     
     @property
     def total_marks(self):
@@ -140,6 +164,13 @@ class StudentOptionalResult(models.Model):
     class Meta:
         db_table = 'student_optional_results'
         unique_together = ['student', 'optional_subject', 'session']
+        indexes = [
+            # Composite index for fetching by session + student
+            models.Index(
+                fields=['session', 'student'],
+                name='idx_optional_session_student'
+            ),
+        ]
     
     def calculate_grade(self):
         """Calculate grade based on percentage."""

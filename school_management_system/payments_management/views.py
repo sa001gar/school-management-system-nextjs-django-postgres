@@ -83,7 +83,7 @@ class StudentFeeViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         queryset = StudentFee.objects.select_related(
-            'student', 'fee_structure', 'session', 'discount'
+            'student', 'student__class_ref', 'fee_structure', 'session', 'discount'
         )
         student_id = self.request.query_params.get('student_id')
         session_id = self.request.query_params.get('session_id')
@@ -189,7 +189,7 @@ class PaymentViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         queryset = Payment.objects.select_related(
-            'student_fee__student', 'student_fee__fee_structure', 'received_by'
+            'student_fee__student', 'student_fee__fee_structure', 'student_fee__session', 'received_by'
         )
         student_fee_id = self.request.query_params.get('student_fee_id')
         date_from = self.request.query_params.get('date_from')
@@ -230,7 +230,9 @@ class PaymentViewSet(viewsets.ModelViewSet):
 
 class PaymentReminderViewSet(viewsets.ModelViewSet):
     """ViewSet for payment reminders."""
-    queryset = PaymentReminder.objects.all()
+    queryset = PaymentReminder.objects.select_related(
+        'student_fee__student', 'student_fee__fee_structure', 'student_fee__session'
+    )
     serializer_class = PaymentReminderSerializer
     filter_backends = [DjangoFilterBackend, OrderingFilter]
     filterset_fields = ['student_fee', 'status']

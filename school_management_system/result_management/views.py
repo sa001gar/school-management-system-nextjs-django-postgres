@@ -14,9 +14,9 @@ from .serializers import (
     StudentResultSerializer, StudentResultCreateSerializer, StudentResultDetailSerializer,
     StudentResultUpsertSerializer, BulkStudentResultUpsertSerializer,
     StudentCocurricularResultSerializer, StudentCocurricularResultCreateSerializer,
-    StudentCocurricularResultDetailSerializer,
+    StudentCocurricularResultDetailSerializer, BulkStudentCocurricularResultUpsertSerializer,
     StudentOptionalResultSerializer, StudentOptionalResultCreateSerializer,
-    StudentOptionalResultDetailSerializer
+    StudentOptionalResultDetailSerializer, BulkStudentOptionalResultUpsertSerializer
 )
 from core_services.views import IsAdminUser
 from core_services.models import Student, Subject
@@ -40,7 +40,9 @@ class StudentResultViewSet(viewsets.ModelViewSet):
         return StudentResultSerializer
     
     def get_queryset(self):
-        queryset = StudentResult.objects.select_related('student', 'subject', 'session')
+        queryset = StudentResult.objects.select_related(
+            'student', 'student__class_ref', 'student__section', 'subject', 'session'
+        )
         student_id = self.request.query_params.get('student_id')
         subject_id = self.request.query_params.get('subject_id')
         session_id = self.request.query_params.get('session_id')
@@ -75,6 +77,24 @@ class StudentResultViewSet(viewsets.ModelViewSet):
             StudentResultSerializer(results, many=True).data,
             status=status.HTTP_200_OK
         )
+    
+    @action(detail=False, methods=['post'], url_path='by-students')
+    def by_students(self, request):
+        """Get results for multiple students in one request."""
+        student_ids = request.data.get('student_ids', [])
+        session_id = request.data.get('session_id')
+        
+        if not student_ids:
+            return Response([])
+        
+        queryset = StudentResult.objects.filter(
+            student_id__in=student_ids
+        ).select_related('student', 'subject', 'session')
+        
+        if session_id:
+            queryset = queryset.filter(session_id=session_id)
+        
+        return Response(StudentResultSerializer(queryset, many=True).data)
     
     @action(detail=False, methods=['get'], url_path='by-class-section')
     def by_class_section(self, request):
@@ -142,7 +162,7 @@ class StudentCocurricularResultViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         queryset = StudentCocurricularResult.objects.select_related(
-            'student', 'cocurricular_subject', 'session'
+            'student', 'student__class_ref', 'student__section', 'cocurricular_subject', 'session'
         )
         student_id = self.request.query_params.get('student_id')
         session_id = self.request.query_params.get('session_id')
@@ -177,6 +197,35 @@ class StudentCocurricularResultViewSet(viewsets.ModelViewSet):
             StudentCocurricularResultSerializer(result).data,
             status=status.HTTP_200_OK
         )
+    
+    @action(detail=False, methods=['post'], url_path='by-students')
+    def by_students(self, request):
+        """Get cocurricular results for multiple students in one request."""
+        student_ids = request.data.get('student_ids', [])
+        session_id = request.data.get('session_id')
+        
+        if not student_ids:
+            return Response([])
+        
+        queryset = StudentCocurricularResult.objects.filter(
+            student_id__in=student_ids
+        ).select_related('student', 'cocurricular_subject', 'session')
+        
+        if session_id:
+            queryset = queryset.filter(session_id=session_id)
+        
+        return Response(StudentCocurricularResultSerializer(queryset, many=True).data)
+    
+    @action(detail=False, methods=['post'], url_path='bulk-upsert')
+    def bulk_upsert(self, request):
+        """Bulk create or update co-curricular results."""
+        serializer = BulkStudentCocurricularResultUpsertSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        results = serializer.save()
+        return Response(
+            StudentCocurricularResultSerializer(results, many=True).data,
+            status=status.HTTP_200_OK
+        )
 
 
 class StudentOptionalResultViewSet(viewsets.ModelViewSet):
@@ -198,7 +247,7 @@ class StudentOptionalResultViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         queryset = StudentOptionalResult.objects.select_related(
-            'student', 'optional_subject', 'session'
+            'student', 'student__class_ref', 'student__section', 'optional_subject', 'session'
         )
         student_id = self.request.query_params.get('student_id')
         session_id = self.request.query_params.get('session_id')
@@ -233,6 +282,35 @@ class StudentOptionalResultViewSet(viewsets.ModelViewSet):
             StudentOptionalResultSerializer(result).data,
             status=status.HTTP_200_OK
         )
+    
+    @action(detail=False, methods=['post'], url_path='bulk-upsert')
+    def bulk_upsert(self, request):
+        """Bulk create or update optional results."""
+        serializer = BulkStudentOptionalResultUpsertSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        results = serializer.save()
+        return Response(
+            StudentOptionalResultSerializer(results, many=True).data,
+            status=status.HTTP_200_OK
+        )
+    
+    @action(detail=False, methods=['post'], url_path='by-students')
+    def by_students(self, request):
+        """Get optional results for multiple students in one request."""
+        student_ids = request.data.get('student_ids', [])
+        session_id = request.data.get('session_id')
+        
+        if not student_ids:
+            return Response([])
+        
+        queryset = StudentOptionalResult.objects.filter(
+            student_id__in=student_ids
+        ).select_related('student', 'optional_subject', 'session')
+        
+        if session_id:
+            queryset = queryset.filter(session_id=session_id)
+        
+        return Response(StudentOptionalResultSerializer(queryset, many=True).data)
 
 
 class MarksheetView(viewsets.ViewSet):
@@ -345,16 +423,35 @@ class MarksheetView(viewsets.ViewSet):
             section_id=section_id
         ).select_related('class_ref', 'section', 'session').order_by('roll_no')
         
+        student_ids = list(students.values_list('id', flat=True))
+        
+        # Prefetch all results in bulk to avoid N+1 queries
+        all_results = StudentResult.objects.filter(
+            student_id__in=student_ids, session_id=session_id
+        ).select_related('subject')
+        
+        all_optional_results = StudentOptionalResult.objects.filter(
+            student_id__in=student_ids, session_id=session_id
+        ).select_related('optional_subject')
+        
+        # Group results by student_id for quick lookup
+        results_by_student = {}
+        for result in all_results:
+            if result.student_id not in results_by_student:
+                results_by_student[result.student_id] = []
+            results_by_student[result.student_id].append(result)
+        
+        optional_by_student = {}
+        for result in all_optional_results:
+            if result.student_id not in optional_by_student:
+                optional_by_student[result.student_id] = []
+            optional_by_student[result.student_id].append(result)
+        
         marksheet_data = []
         for student in students:
-            # Get results
-            results = StudentResult.objects.filter(
-                student=student, session_id=session_id
-            ).select_related('subject')
-            
-            optional_results = StudentOptionalResult.objects.filter(
-                student=student, session_id=session_id
-            ).select_related('optional_subject')
+            # Get results from prefetched data
+            results = results_by_student.get(student.id, [])
+            optional_results = optional_by_student.get(student.id, [])
             
             # Calculate totals
             total_marks = sum(r.total_marks for r in results)

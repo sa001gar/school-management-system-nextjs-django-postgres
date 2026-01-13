@@ -44,6 +44,17 @@ export const sessionsApi = {
   },
 };
 
+// Class configuration response type
+export interface ClassConfigResponse {
+  class: Class;
+  sections: Section[];
+  subject_assignments: ClassSubjectAssignment[];
+  optional_config: ClassOptionalConfig | null;
+  optional_assignments: ClassOptionalAssignment[];
+  cocurricular_config: ClassCocurricularConfig | null;
+  marks_distribution: ClassMarksDistribution | null;
+}
+
 // Classes API
 export const classesApi = {
   getAll: async (): Promise<Class[]> => {
@@ -53,6 +64,14 @@ export const classesApi = {
 
   getById: async (id: string): Promise<Class> => {
     return api.get<Class>(`/classes/${id}/`);
+  },
+
+  /**
+   * Get all configurations for a class in a single API call
+   * Includes sections, subject assignments, optional config, cocurricular config, marks distribution
+   */
+  getConfig: async (id: string): Promise<ClassConfigResponse> => {
+    return api.get<ClassConfigResponse>(`/classes/${id}/config/`);
   },
 
   create: async (data: Partial<Class>): Promise<Class> => {
@@ -203,6 +222,21 @@ export const classOptionalConfigApi = {
     return results[0] || null;
   },
 
+  getAll: async (): Promise<ClassOptionalConfig[]> => {
+    const response = await api.get<{ results?: ClassOptionalConfig[] } | ClassOptionalConfig[]>(
+      '/class-optional-config/'
+    );
+    return Array.isArray(response) ? response : (response.results || []);
+  },
+
+  /**
+   * Get optional configs for multiple classes in one request
+   */
+  getByClasses: async (classIds: string[]): Promise<ClassOptionalConfig[]> => {
+    if (!classIds.length) return [];
+    return api.post<ClassOptionalConfig[]>('/class-optional-config/by-classes/', { class_ids: classIds });
+  },
+
   create: async (data: { class_id: string; has_optional: boolean }): Promise<ClassOptionalConfig> => {
     return api.post<ClassOptionalConfig>('/class-optional-config/', data);
   },
@@ -222,6 +256,21 @@ export const classOptionalAssignmentsApi = {
     return Array.isArray(response) ? response : (response.results || []);
   },
 
+  getAll: async (): Promise<ClassOptionalAssignment[]> => {
+    const response = await api.get<{ results?: ClassOptionalAssignment[] } | ClassOptionalAssignment[]>(
+      '/class-optional-assignments/'
+    );
+    return Array.isArray(response) ? response : (response.results || []);
+  },
+
+  /**
+   * Get optional assignments for multiple classes in one request
+   */
+  getByClasses: async (classIds: string[]): Promise<ClassOptionalAssignment[]> => {
+    if (!classIds.length) return [];
+    return api.post<ClassOptionalAssignment[]>('/class-optional-assignments/by-classes/', { class_ids: classIds });
+  },
+
   create: async (data: { class_id: string; optional_subject_id: string; full_marks?: number; is_required?: boolean }): Promise<ClassOptionalAssignment> => {
     return api.post<ClassOptionalAssignment>('/class-optional-assignments/', data);
   },
@@ -233,6 +282,13 @@ export const classOptionalAssignmentsApi = {
 
 // Class Cocurricular Config API
 export const classCocurricularConfigApi = {
+  getAll: async (): Promise<ClassCocurricularConfig[]> => {
+    const response = await api.get<{ results?: ClassCocurricularConfig[] } | ClassCocurricularConfig[]>(
+      '/class-cocurricular-config/'
+    );
+    return Array.isArray(response) ? response : (response.results || []);
+  },
+
   getByClass: async (classId: string): Promise<ClassCocurricularConfig | null> => {
     const response = await api.get<{ results?: ClassCocurricularConfig[] } | ClassCocurricularConfig[]>(
       '/class-cocurricular-config/',
@@ -253,6 +309,13 @@ export const classCocurricularConfigApi = {
 
 // Class Marks Distribution API
 export const classMarksDistributionApi = {
+  getAll: async (): Promise<ClassMarksDistribution[]> => {
+    const response = await api.get<{ results?: ClassMarksDistribution[] } | ClassMarksDistribution[]>(
+      '/class-marks-distribution/'
+    );
+    return Array.isArray(response) ? response : (response.results || []);
+  },
+
   getByClass: async (classId: string): Promise<ClassMarksDistribution | null> => {
     const response = await api.get<{ results?: ClassMarksDistribution[] } | ClassMarksDistribution[]>(
       '/class-marks-distribution/',
@@ -260,6 +323,14 @@ export const classMarksDistributionApi = {
     );
     const results = Array.isArray(response) ? response : (response.results || []);
     return results[0] || null;
+  },
+
+  /**
+   * Get marks distributions for multiple classes in one request
+   */
+  getByClasses: async (classIds: string[]): Promise<ClassMarksDistribution[]> => {
+    if (!classIds.length) return [];
+    return api.post<ClassMarksDistribution[]>('/class-marks-distribution/by-classes/', { class_ids: classIds });
   },
 
   create: async (data: { class_id: string } & Partial<ClassMarksDistribution>): Promise<ClassMarksDistribution> => {
@@ -273,6 +344,13 @@ export const classMarksDistributionApi = {
 
 // School Config API
 export const schoolConfigApi = {
+  getAll: async (): Promise<SchoolConfig[]> => {
+    const response = await api.get<{ results?: SchoolConfig[] } | SchoolConfig[]>(
+      '/school-config/'
+    );
+    return Array.isArray(response) ? response : (response.results || []);
+  },
+
   get: async (classId?: string, sessionId?: string): Promise<SchoolConfig | null> => {
     const response = await api.get<{ results?: SchoolConfig[] } | SchoolConfig[]>(
       '/school-config/',
@@ -280,6 +358,17 @@ export const schoolConfigApi = {
     );
     const results = Array.isArray(response) ? response : (response.results || []);
     return results[0] || null;
+  },
+
+  /**
+   * Get school configs for multiple classes in one request
+   */
+  getByClasses: async (classIds: string[], sessionId?: string): Promise<SchoolConfig[]> => {
+    if (!classIds.length) return [];
+    return api.post<SchoolConfig[]>('/school-config/by-classes/', { 
+      class_ids: classIds,
+      session_id: sessionId
+    });
   },
 
   create: async (data: Partial<SchoolConfig>): Promise<SchoolConfig> => {

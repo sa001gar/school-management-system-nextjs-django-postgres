@@ -118,6 +118,16 @@ export const studentResultsApi = {
   }): Promise<StudentWithResult[]> => {
     return api.get<StudentWithResult[]>('/results/student-results/by-class-section/', params);
   },
+
+  /**
+   * Get results for multiple students in one request (batch)
+   */
+  getByStudents: async (studentIds: string[], sessionId?: string): Promise<StudentResult[]> => {
+    return api.post<StudentResult[]>('/results/student-results/by-students/', {
+      student_ids: studentIds,
+      session_id: sessionId,
+    });
+  },
 };
 
 // Cocurricular Results API
@@ -206,6 +216,16 @@ export const cocurricularResultsApi = {
   }>): Promise<StudentCocurricularResult[]> => {
     return api.post<StudentCocurricularResult[]>('/results/cocurricular-results/bulk-upsert/', { results });
   },
+
+  /**
+   * Get cocurricular results for multiple students in one request (batch)
+   */
+  getByStudents: async (studentIds: string[], sessionId?: string): Promise<StudentCocurricularResult[]> => {
+    return api.post<StudentCocurricularResult[]>('/results/cocurricular-results/by-students/', {
+      student_ids: studentIds,
+      session_id: sessionId,
+    });
+  },
 };
 
 // Optional Results API
@@ -276,6 +296,16 @@ export const optionalResultsApi = {
     grade?: string;
   }>): Promise<StudentOptionalResult[]> => {
     return api.post<StudentOptionalResult[]>('/results/optional-results/bulk-upsert/', { results });
+  },
+
+  /**
+   * Get optional results for multiple students in one request (batch)
+   */
+  getByStudents: async (studentIds: string[], sessionId?: string): Promise<StudentOptionalResult[]> => {
+    return api.post<StudentOptionalResult[]>('/results/optional-results/by-students/', {
+      student_ids: studentIds,
+      session_id: sessionId,
+    });
   },
 };
 

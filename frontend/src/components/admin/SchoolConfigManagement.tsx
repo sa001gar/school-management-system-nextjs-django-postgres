@@ -32,22 +32,12 @@ export const SchoolConfigManagement: React.FC = () => {
       setClasses(classesData)
       setSessions(sessionsData)
 
-      // Fetch school configs and marks distributions for each class
-      const configPromises = classesData.map(cls =>
-        Promise.all([
-          schoolConfigApi.get(cls.id),
-          classMarksDistributionApi.getByClass(cls.id)
-        ])
-      )
-      const configResults = await Promise.all(configPromises)
-      
-      const configs: SchoolConfig[] = []
-      const distributions: ClassMarksDistribution[] = []
-      
-      configResults.forEach(([config, distribution]) => {
-        if (config) configs.push(config)
-        if (distribution) distributions.push(distribution)
-      })
+      // Fetch school configs and marks distributions for all classes in batch
+      const classIds = classesData.map(cls => cls.id)
+      const [configs, distributions] = await Promise.all([
+        schoolConfigApi.getByClasses(classIds),
+        classMarksDistributionApi.getByClasses(classIds)
+      ])
 
       setSchoolConfigs(configs)
       setMarksDistributions(distributions)

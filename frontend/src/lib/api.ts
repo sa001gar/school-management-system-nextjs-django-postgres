@@ -10,6 +10,44 @@ export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:80
 const ACCESS_TOKEN_KEY = 'access_token';
 const REFRESH_TOKEN_KEY = 'refresh_token';
 
+// Simple in-memory cache for GET requests
+const cache = new Map<string, { data: any; timestamp: number }>();
+const CACHE_TTL = 30000; // 30 seconds cache TTL
+
+/**
+ * Get cached data if valid
+ */
+const getCachedData = <T>(key: string): T | null => {
+  const cached = cache.get(key);
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+    return cached.data as T;
+  }
+  cache.delete(key);
+  return null;
+};
+
+/**
+ * Set cache data
+ */
+const setCacheData = <T>(key: string, data: T): void => {
+  cache.set(key, { data, timestamp: Date.now() });
+};
+
+/**
+ * Invalidate cache entries matching a prefix
+ */
+export const invalidateCache = (prefix?: string): void => {
+  if (!prefix) {
+    cache.clear();
+    return;
+  }
+  for (const key of cache.keys()) {
+    if (key.startsWith(prefix)) {
+      cache.delete(key);
+    }
+  }
+};
+
 /**
  * Get stored access token
  */
@@ -197,7 +235,7 @@ export const apiRequest = async <T>(
  * API helper methods
  */
 export const api = {
-  get: <T>(endpoint: string, params?: Record<string, string | number | boolean | undefined>) => {
+  get: <T>(endpoint: string, params?: Record<string, string | number | boolean | undefined>, useCache: boolean = true) => {
     let url = endpoint;
     if (params) {
       const searchParams = new URLSearchParams();
@@ -211,10 +249,26 @@ export const api = {
         url += `?${queryString}`;
       }
     }
-    return apiRequest<T>(url, { method: 'GET' });
+    
+    // Check cache for GET requests
+    if (useCache) {
+      const cached = getCachedData<T>(url);
+      if (cached) {
+        return Promise.resolve(cached);
+      }
+    }
+    
+    return apiRequest<T>(url, { method: 'GET' }).then(data => {
+      if (useCache) {
+        setCacheData(url, data);
+      }
+      return data;
+    });
   },
 
   post: <T>(endpoint: string, data?: any) => {
+    // Invalidate related cache on POST
+    invalidateCache(endpoint.split('/')[1]);
     return apiRequest<T>(endpoint, {
       method: 'POST',
       body: data ? JSON.stringify(data) : undefined,
@@ -222,6 +276,7 @@ export const api = {
   },
 
   put: <T>(endpoint: string, data?: any) => {
+    invalidateCache(endpoint.split('/')[1]);
     return apiRequest<T>(endpoint, {
       method: 'PUT',
       body: data ? JSON.stringify(data) : undefined,
@@ -229,6 +284,7 @@ export const api = {
   },
 
   patch: <T>(endpoint: string, data?: any) => {
+    invalidateCache(endpoint.split('/')[1]);
     return apiRequest<T>(endpoint, {
       method: 'PATCH',
       body: data ? JSON.stringify(data) : undefined,
@@ -236,6 +292,7 @@ export const api = {
   },
 
   delete: <T>(endpoint: string) => {
+    invalidateCache(endpoint.split('/')[1]);
     return apiRequest<T>(endpoint, { method: 'DELETE' });
   },
 };

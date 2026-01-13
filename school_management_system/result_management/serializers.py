@@ -2,6 +2,7 @@
 Serializers for Result Management API.
 """
 from rest_framework import serializers
+from django.db import transaction
 from .models import StudentResult, StudentCocurricularResult, StudentOptionalResult
 from core_services.serializers import (
     StudentSerializer, SubjectSerializer, SessionSerializer,
@@ -119,14 +120,36 @@ class BulkStudentResultUpsertSerializer(serializers.Serializer):
     """Serializer for bulk upserting student results."""
     results = StudentResultUpsertSerializer(many=True)
     
+    @transaction.atomic
     def create(self, validated_data):
         results_data = validated_data.get('results', [])
+        if not results_data:
+            return []
+        
+        # Collect all unique IDs to prefetch
+        student_ids = set()
+        subject_ids = set()
+        session_ids = set()
+        
+        for result_data in results_data:
+            student_ids.add(result_data['student_id'])
+            subject_ids.add(result_data['subject_id'])
+            session_ids.add(result_data['session_id'])
+        
+        # Prefetch all related objects in bulk
+        students_map = {s.id: s for s in Student.objects.filter(id__in=student_ids)}
+        subjects_map = {s.id: s for s in Subject.objects.filter(id__in=subject_ids)}
+        sessions_map = {s.id: s for s in Session.objects.filter(id__in=session_ids)}
+        
         upserted_results = []
         
         for result_data in results_data:
-            student = Student.objects.get(id=result_data.pop('student_id'))
-            subject = Subject.objects.get(id=result_data.pop('subject_id'))
-            session = Session.objects.get(id=result_data.pop('session_id'))
+            student = students_map.get(result_data.pop('student_id'))
+            subject = subjects_map.get(result_data.pop('subject_id'))
+            session = sessions_map.get(result_data.pop('session_id'))
+            
+            if not all([student, subject, session]):
+                continue
             
             result, created = StudentResult.objects.update_or_create(
                 student=student,
@@ -246,3 +269,120 @@ class StudentOptionalResultDetailSerializer(StudentOptionalResultSerializer):
     
     class Meta(StudentOptionalResultSerializer.Meta):
         fields = StudentOptionalResultSerializer.Meta.fields + ['student', 'optional_subject', 'session']
+
+
+class StudentCocurricularResultUpsertSerializer(serializers.Serializer):
+    """Serializer for upserting co-curricular results."""
+    student_id = serializers.UUIDField()
+    cocurricular_subject_id = serializers.UUIDField()
+    session_id = serializers.UUIDField()
+    first_term_marks = serializers.IntegerField(default=0)
+    second_term_marks = serializers.IntegerField(default=0)
+    final_term_marks = serializers.IntegerField(default=0)
+    full_marks = serializers.IntegerField(default=100)
+    first_term_grade = serializers.CharField(max_length=10, default='', allow_blank=True)
+    second_term_grade = serializers.CharField(max_length=10, default='', allow_blank=True)
+    final_term_grade = serializers.CharField(max_length=10, default='', allow_blank=True)
+    overall_grade = serializers.CharField(max_length=10, default='', allow_blank=True)
+
+
+class BulkStudentCocurricularResultUpsertSerializer(serializers.Serializer):
+    """Serializer for bulk upserting co-curricular results."""
+    results = StudentCocurricularResultUpsertSerializer(many=True)
+    
+    @transaction.atomic
+    def create(self, validated_data):
+        results_data = validated_data.get('results', [])
+        if not results_data:
+            return []
+        
+        # Collect all unique IDs to prefetch
+        student_ids = set()
+        subject_ids = set()
+        session_ids = set()
+        
+        for result_data in results_data:
+            student_ids.add(result_data['student_id'])
+            subject_ids.add(result_data['cocurricular_subject_id'])
+            session_ids.add(result_data['session_id'])
+        
+        # Prefetch all related objects in bulk
+        students_map = {s.id: s for s in Student.objects.filter(id__in=student_ids)}
+        subjects_map = {s.id: s for s in CocurricularSubject.objects.filter(id__in=subject_ids)}
+        sessions_map = {s.id: s for s in Session.objects.filter(id__in=session_ids)}
+        
+        upserted_results = []
+        
+        for result_data in results_data:
+            student = students_map.get(result_data.pop('student_id'))
+            subject = subjects_map.get(result_data.pop('cocurricular_subject_id'))
+            session = sessions_map.get(result_data.pop('session_id'))
+            
+            if not all([student, subject, session]):
+                continue
+            
+            result, created = StudentCocurricularResult.objects.update_or_create(
+                student=student,
+                cocurricular_subject=subject,
+                session=session,
+                defaults=result_data
+            )
+            upserted_results.append(result)
+        
+        return upserted_results
+
+
+class StudentOptionalResultUpsertSerializer(serializers.Serializer):
+    """Serializer for upserting optional results."""
+    student_id = serializers.UUIDField()
+    optional_subject_id = serializers.UUIDField()
+    session_id = serializers.UUIDField()
+    obtained_marks = serializers.IntegerField(default=0)
+    full_marks = serializers.IntegerField(default=50)
+    grade = serializers.CharField(max_length=10, default='', allow_blank=True)
+
+
+class BulkStudentOptionalResultUpsertSerializer(serializers.Serializer):
+    """Serializer for bulk upserting optional results."""
+    results = StudentOptionalResultUpsertSerializer(many=True)
+    
+    @transaction.atomic
+    def create(self, validated_data):
+        results_data = validated_data.get('results', [])
+        if not results_data:
+            return []
+        
+        # Collect all unique IDs to prefetch
+        student_ids = set()
+        subject_ids = set()
+        session_ids = set()
+        
+        for result_data in results_data:
+            student_ids.add(result_data['student_id'])
+            subject_ids.add(result_data['optional_subject_id'])
+            session_ids.add(result_data['session_id'])
+        
+        # Prefetch all related objects in bulk
+        students_map = {s.id: s for s in Student.objects.filter(id__in=student_ids)}
+        subjects_map = {s.id: s for s in OptionalSubject.objects.filter(id__in=subject_ids)}
+        sessions_map = {s.id: s for s in Session.objects.filter(id__in=session_ids)}
+        
+        upserted_results = []
+        
+        for result_data in results_data:
+            student = students_map.get(result_data.pop('student_id'))
+            subject = subjects_map.get(result_data.pop('optional_subject_id'))
+            session = sessions_map.get(result_data.pop('session_id'))
+            
+            if not all([student, subject, session]):
+                continue
+            
+            result, created = StudentOptionalResult.objects.update_or_create(
+                student=student,
+                optional_subject=subject,
+                session=session,
+                defaults=result_data
+            )
+            upserted_results.append(result)
+        
+        return upserted_results

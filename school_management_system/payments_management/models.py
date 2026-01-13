@@ -40,6 +40,19 @@ class FeeStructure(models.Model):
     class Meta:
         db_table = 'fee_structures'
         ordering = ['class_ref__level', 'name']
+        indexes = [
+            # Composite index for class + session lookups
+            models.Index(
+                fields=['class_ref', 'session'],
+                name='idx_feestructure_class_session'
+            ),
+            # Partial index for active fee structures
+            models.Index(
+                fields=['is_active'],
+                name='idx_feestructure_active',
+                condition=models.Q(is_active=True)
+            ),
+        ]
     
     @property
     def total_fee(self):
@@ -138,6 +151,24 @@ class StudentFee(models.Model):
         db_table = 'student_fees'
         ordering = ['-created_at']
         unique_together = ['student', 'fee_structure', 'session']
+        indexes = [
+            # Composite index for student + session
+            models.Index(
+                fields=['student', 'session'],
+                name='idx_studentfee_student_session'
+            ),
+            # Index for status filtering (partial for unpaid)
+            models.Index(
+                fields=['status'],
+                name='idx_studentfee_pending',
+                condition=models.Q(status__in=['pending', 'partial', 'overdue'])
+            ),
+            # Index for due date queries
+            models.Index(
+                fields=['due_date', 'status'],
+                name='idx_studentfee_duedate_status'
+            ),
+        ]
     
     @property
     def balance_amount(self):
@@ -216,6 +247,18 @@ class Payment(models.Model):
     class Meta:
         db_table = 'payments'
         ordering = ['-payment_date', '-created_at']
+        indexes = [
+            # Index for payment date range queries
+            models.Index(
+                fields=['payment_date'],
+                name='idx_payment_date'
+            ),
+            # Index for payment method reports
+            models.Index(
+                fields=['payment_method', 'payment_date'],
+                name='idx_payment_method_date'
+            ),
+        ]
     
     def save(self, *args, **kwargs):
         # Generate receipt number if not provided

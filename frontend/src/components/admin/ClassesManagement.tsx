@@ -23,15 +23,13 @@ export const ClassesManagement: React.FC = () => {
   const fetchClasses = async () => {
     setLoading(true)
     try {
-      const classesData = await classesApi.getAll()
-      setClasses(classesData)
+      // Fetch classes and all cocurricular configs in parallel
+      const [classesData, configs] = await Promise.all([
+        classesApi.getAll(),
+        classCocurricularConfigApi.getAll()
+      ])
       
-      // Fetch cocurricular configs for all classes
-      const configs: ClassCocurricularConfig[] = []
-      for (const cls of classesData) {
-        const config = await classCocurricularConfigApi.getByClass(cls.id)
-        if (config) configs.push(config)
-      }
+      setClasses(classesData)
       setCocurricularConfigs(configs)
     } catch (error) {
       console.error('Error fetching classes:', error)

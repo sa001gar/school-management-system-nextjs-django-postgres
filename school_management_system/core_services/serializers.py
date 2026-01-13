@@ -4,6 +4,7 @@ Serializers for Core Services API.
 from rest_framework import serializers
 from django.contrib.auth import authenticate
 from django.contrib.auth.password_validation import validate_password
+from django.db import transaction
 from .models import (
     CustomUser, Admin, Teacher, Session, Class, Section,
     Subject, CocurricularSubject, OptionalSubject, ClassSubjectAssignment,
@@ -241,7 +242,10 @@ class ClassOptionalAssignmentSerializer(serializers.ModelSerializer):
 
 class ClassCocurricularConfigSerializer(serializers.ModelSerializer):
     """Serializer for class co-curricular configuration."""
-    class_id = serializers.UUIDField(source='class_ref.id', read_only=True)
+    class_id = serializers.PrimaryKeyRelatedField(
+        queryset=Class.objects.all(),
+        source='class_ref'
+    )
     
     class Meta:
         model = ClassCocurricularConfig
@@ -345,23 +349,48 @@ class BulkStudentCreateSerializer(serializers.Serializer):
     """Serializer for bulk student creation."""
     students = StudentCreateSerializer(many=True)
     
+    @transaction.atomic
     def create(self, validated_data):
         students_data = validated_data.get('students', [])
-        created_students = []
+        if not students_data:
+            return []
+        
+        # Collect all unique IDs to prefetch
+        class_ids = set()
+        section_ids = set()
+        session_ids = set()
+        
+        for student_data in students_data:
+            if 'class_id' in student_data and student_data['class_id']:
+                class_ids.add(student_data['class_id'])
+            if 'section_id' in student_data and student_data['section_id']:
+                section_ids.add(student_data['section_id'])
+            if 'session_id' in student_data and student_data['session_id']:
+                session_ids.add(student_data['session_id'])
+        
+        # Prefetch all related objects in bulk
+        classes_map = {c.id: c for c in Class.objects.filter(id__in=class_ids)} if class_ids else {}
+        sections_map = {s.id: s for s in Section.objects.filter(id__in=section_ids)} if section_ids else {}
+        sessions_map = {s.id: s for s in Session.objects.filter(id__in=session_ids)} if session_ids else {}
+        
+        # Prepare student objects for bulk creation
+        student_objects = []
         
         for student_data in students_data:
             class_id = student_data.pop('class_id', None)
             section_id = student_data.pop('section_id', None)
             session_id = student_data.pop('session_id', None)
             
-            if class_id:
-                student_data['class_ref'] = Class.objects.get(id=class_id)
-            if section_id:
-                student_data['section'] = Section.objects.get(id=section_id)
-            if session_id:
-                student_data['session'] = Session.objects.get(id=session_id)
-            
-            student = Student.objects.create(**student_data)
-            created_students.append(student)
+            student = Student(
+                roll_no=student_data.get('roll_no'),
+                name=student_data.get('name'),
+                class_ref=classes_map.get(class_id) if class_id else None,
+                section=sections_map.get(section_id) if section_id else None,
+                session=sessions_map.get(session_id) if session_id else None
+            )
+            student_objects.append(student)
+        
+        # Bulk create all students in a single query
+        created_students = Student.objects.bulk_create(student_objects)
         
         return created_students

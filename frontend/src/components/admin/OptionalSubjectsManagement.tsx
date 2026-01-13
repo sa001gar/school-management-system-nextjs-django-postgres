@@ -37,16 +37,12 @@ export const OptionalSubjectsManagement: React.FC = () => {
       setOptionalSubjects(subjects)
       setClasses(classesData)
 
-      // Fetch configs and assignments for all classes
-      const configs: ClassOptionalConfig[] = []
-      const assignments: ClassOptionalAssignment[] = []
-      
-      for (const cls of classesData) {
-        const config = await classOptionalConfigApi.getByClass(cls.id)
-        if (config) configs.push(config)
-        const classAssignments = await classOptionalAssignmentsApi.getByClass(cls.id)
-        assignments.push(...classAssignments)
-      }
+      // Fetch configs and assignments for all classes in batch (single API call each)
+      const classIds = classesData.map(c => c.id)
+      const [configs, assignments] = await Promise.all([
+        classOptionalConfigApi.getByClasses(classIds),
+        classOptionalAssignmentsApi.getByClasses(classIds)
+      ])
       
       setClassConfigs(configs)
       setClassAssignments(assignments)

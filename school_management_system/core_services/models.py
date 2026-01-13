@@ -84,6 +84,14 @@ class Session(models.Model):
     class Meta:
         db_table = 'sessions'
         ordering = ['-created_at']
+        indexes = [
+            # Partial index for active sessions (most common query)
+            models.Index(
+                fields=['is_active'],
+                name='idx_session_active',
+                condition=models.Q(is_active=True)
+            ),
+        ]
     
     def __str__(self):
         return self.name
@@ -116,6 +124,9 @@ class Section(models.Model):
     class Meta:
         db_table = 'sections'
         ordering = ['name']
+        indexes = [
+            models.Index(fields=['class_ref', 'name'], name='idx_section_class_name'),
+        ]
     
     def __str__(self):
         return f"{self.class_ref.name} - {self.name}"
@@ -224,6 +235,7 @@ class ClassCocurricularConfig(models.Model):
     
     class Meta:
         db_table = 'class_cocurricular_config'
+        ordering = ['created_at']
     
     def __str__(self):
         return f"{self.class_ref.name} - Cocurricular: {self.has_cocurricular}"
@@ -273,6 +285,9 @@ class SchoolConfig(models.Model):
     
     class Meta:
         db_table = 'school_config'
+        indexes = [
+            models.Index(fields=['class_ref', 'session'], name='idx_schoolconfig_class_session'),
+        ]
     
     def __str__(self):
         class_name = self.class_ref.name if self.class_ref else "Global"
@@ -293,6 +308,28 @@ class Student(models.Model):
     class Meta:
         db_table = 'students'
         ordering = ['roll_no']
+        indexes = [
+            # Composite index for common filter: session + class + section
+            models.Index(
+                fields=['session', 'class_ref', 'section'],
+                name='idx_stu_sess_cls_sec'
+            ),
+            # Index for class + section lookups
+            models.Index(
+                fields=['class_ref', 'section'],
+                name='idx_stu_cls_sec'
+            ),
+            # Index for name search
+            models.Index(
+                fields=['name'],
+                name='idx_stu_name'
+            ),
+            # Composite for ordering by roll_no within class
+            models.Index(
+                fields=['class_ref', 'roll_no'],
+                name='idx_stu_cls_roll'
+            ),
+        ]
     
     def __str__(self):
         return f"{self.roll_no} - {self.name}"

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { Save, Calculator, Calendar, User } from 'lucide-react'
-import { studentsApi, studentResultsApi, classMarksDistributionApi, schoolConfigApi } from '../lib/index'
-import type { Student, StudentResult, ClassMarksDistribution, StudentWithResult } from '../lib/types'
+import { studentResultsApi, classMarksDistributionApi, schoolConfigApi } from '../lib/index'
+import type { ClassMarksDistribution, StudentWithResult } from '../lib/types'
 
 interface Props {
   sessionId: string
@@ -22,44 +22,30 @@ export const MarksEntry: React.FC<Props> = ({ sessionId, classId, sectionId, sub
 
   useEffect(() => {
     if (sessionId && classId && sectionId && subjectId) {
-      fetchStudentsAndResults()
-      fetchMarksDistribution()
-      loadTotalSchoolDays()
+      fetchAllData()
     }
   }, [sessionId, classId, sectionId, subjectId])
 
-  const fetchMarksDistribution = async () => {
-    try {
-      const data = await classMarksDistributionApi.getByClass(classId)
-      setMarksDistribution(data)
-    } catch (error) {
-      console.error('Error fetching marks distribution:', error)
-    }
-  }
-
-  const loadTotalSchoolDays = async () => {
-    try {
-      const data = await schoolConfigApi.get(classId, sessionId)
-      if (data) {
-        setTotalSchoolDays(data.total_school_days)
-      }
-    } catch (error) {
-      console.error('Error loading school days:', error)
-    }
-  }
-
-  const fetchStudentsAndResults = async () => {
+  const fetchAllData = async () => {
     setLoading(true)
     try {
-      // Fetch students with their results from the combined endpoint
-      const studentsWithResults = await studentResultsApi.getByClassSection({
-        session_id: sessionId,
-        class_id: classId,
-        section_id: sectionId,
-        subject_id: subjectId
-      })
+      // Fetch all data in parallel for better performance
+      const [studentsWithResults, marksDistData, schoolConfigData] = await Promise.all([
+        studentResultsApi.getByClassSection({
+          session_id: sessionId,
+          class_id: classId,
+          section_id: sectionId,
+          subject_id: subjectId
+        }),
+        classMarksDistributionApi.getByClass(classId).catch(() => null),
+        schoolConfigApi.get(classId, sessionId).catch(() => null)
+      ])
 
       setStudents(studentsWithResults || [])
+      setMarksDistribution(marksDistData)
+      if (schoolConfigData) {
+        setTotalSchoolDays(schoolConfigData.total_school_days)
+      }
     } catch (error) {
       console.error('Error fetching data:', error)
     } finally {

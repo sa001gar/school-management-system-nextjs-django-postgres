@@ -117,7 +117,7 @@ class SessionViewSet(viewsets.ModelViewSet):
 
 class ClassViewSet(viewsets.ModelViewSet):
     """ViewSet for classes."""
-    queryset = Class.objects.all()
+    queryset = Class.objects.prefetch_related('sections')
     serializer_class = ClassSerializer
     filter_backends = [SearchFilter, OrderingFilter]
     search_fields = ['name']
@@ -128,6 +128,33 @@ class ClassViewSet(viewsets.ModelViewSet):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
             return [IsAdminUser()]
         return [permissions.IsAuthenticated()]
+    
+    @action(detail=True, methods=['get'], url_path='config')
+    def get_config(self, request, pk=None):
+        """Get all configurations for a class in a single request."""
+        class_obj = self.get_object()
+        
+        # Get all configs in parallel using select_related where applicable
+        sections = list(class_obj.sections.all())
+        subject_assignments = list(ClassSubjectAssignment.objects.filter(
+            class_ref=class_obj
+        ).select_related('subject'))
+        optional_config = ClassOptionalConfig.objects.filter(class_ref=class_obj).first()
+        optional_assignments = list(ClassOptionalAssignment.objects.filter(
+            class_ref=class_obj
+        ).select_related('optional_subject'))
+        cocurricular_config = ClassCocurricularConfig.objects.filter(class_ref=class_obj).first()
+        marks_distribution = ClassMarksDistribution.objects.filter(class_ref=class_obj).first()
+        
+        return Response({
+            'class': ClassSerializer(class_obj).data,
+            'sections': SectionSerializer(sections, many=True).data,
+            'subject_assignments': ClassSubjectAssignmentSerializer(subject_assignments, many=True).data,
+            'optional_config': ClassOptionalConfigSerializer(optional_config).data if optional_config else None,
+            'optional_assignments': ClassOptionalAssignmentSerializer(optional_assignments, many=True).data,
+            'cocurricular_config': ClassCocurricularConfigSerializer(cocurricular_config).data if cocurricular_config else None,
+            'marks_distribution': ClassMarksDistributionSerializer(marks_distribution).data if marks_distribution else None,
+        })
 
 
 class SectionViewSet(viewsets.ModelViewSet):
@@ -146,7 +173,7 @@ class SectionViewSet(viewsets.ModelViewSet):
         return SectionSerializer
     
     def get_queryset(self):
-        queryset = Section.objects.all()
+        queryset = Section.objects.select_related('class_ref')
         class_id = self.request.query_params.get('class_id')
         if class_id:
             queryset = queryset.filter(class_ref_id=class_id)
@@ -246,6 +273,19 @@ class ClassOptionalConfigViewSet(viewsets.ModelViewSet):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
             return [IsAdminUser()]
         return [permissions.IsAuthenticated()]
+    
+    @action(detail=False, methods=['post'], url_path='by-classes')
+    def by_classes(self, request):
+        """Get optional configs for multiple classes in one request."""
+        class_ids = request.data.get('class_ids', [])
+        if not class_ids:
+            return Response([])
+        
+        configs = ClassOptionalConfig.objects.filter(
+            class_ref_id__in=class_ids
+        ).select_related('class_ref')
+        
+        return Response(ClassOptionalConfigSerializer(configs, many=True).data)
 
 
 class ClassOptionalAssignmentViewSet(viewsets.ModelViewSet):
@@ -266,6 +306,19 @@ class ClassOptionalAssignmentViewSet(viewsets.ModelViewSet):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
             return [IsAdminUser()]
         return [permissions.IsAuthenticated()]
+    
+    @action(detail=False, methods=['post'], url_path='by-classes')
+    def by_classes(self, request):
+        """Get optional assignments for multiple classes in one request."""
+        class_ids = request.data.get('class_ids', [])
+        if not class_ids:
+            return Response([])
+        
+        assignments = ClassOptionalAssignment.objects.filter(
+            class_ref_id__in=class_ids
+        ).select_related('class_ref', 'optional_subject')
+        
+        return Response(ClassOptionalAssignmentSerializer(assignments, many=True).data)
 
 
 class ClassCocurricularConfigViewSet(viewsets.ModelViewSet):
@@ -294,9 +347,10 @@ class ClassMarksDistributionViewSet(viewsets.ModelViewSet):
     serializer_class = ClassMarksDistributionSerializer
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['class_ref']
+    ordering = ['created_at']
     
     def get_queryset(self):
-        queryset = ClassMarksDistribution.objects.select_related('class_ref')
+        queryset = ClassMarksDistribution.objects.select_related('class_ref').order_by('created_at')
         class_id = self.request.query_params.get('class_id')
         if class_id:
             queryset = queryset.filter(class_ref_id=class_id)
@@ -306,6 +360,19 @@ class ClassMarksDistributionViewSet(viewsets.ModelViewSet):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
             return [IsAdminUser()]
         return [permissions.IsAuthenticated()]
+    
+    @action(detail=False, methods=['post'], url_path='by-classes')
+    def by_classes(self, request):
+        """Get marks distributions for multiple classes in one request."""
+        class_ids = request.data.get('class_ids', [])
+        if not class_ids:
+            return Response([])
+        
+        distributions = ClassMarksDistribution.objects.filter(
+            class_ref_id__in=class_ids
+        ).select_related('class_ref').order_by('created_at')
+        
+        return Response(ClassMarksDistributionSerializer(distributions, many=True).data)
 
 
 class SchoolConfigViewSet(viewsets.ModelViewSet):
@@ -314,9 +381,10 @@ class SchoolConfigViewSet(viewsets.ModelViewSet):
     serializer_class = SchoolConfigSerializer
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['class_ref', 'session']
+    ordering = ['created_at']
     
     def get_queryset(self):
-        queryset = SchoolConfig.objects.select_related('class_ref', 'session')
+        queryset = SchoolConfig.objects.select_related('class_ref', 'session').order_by('created_at')
         class_id = self.request.query_params.get('class_id')
         session_id = self.request.query_params.get('session_id')
         if class_id:
@@ -329,6 +397,24 @@ class SchoolConfigViewSet(viewsets.ModelViewSet):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
             return [IsAdminUser()]
         return [permissions.IsAuthenticated()]
+    
+    @action(detail=False, methods=['post'], url_path='by-classes')
+    def by_classes(self, request):
+        """Get school configs for multiple classes in one request."""
+        class_ids = request.data.get('class_ids', [])
+        session_id = request.data.get('session_id')
+        
+        if not class_ids:
+            return Response([])
+        
+        queryset = SchoolConfig.objects.filter(
+            class_ref_id__in=class_ids
+        ).select_related('class_ref', 'session').order_by('created_at')
+        
+        if session_id:
+            queryset = queryset.filter(session_id=session_id)
+        
+        return Response(SchoolConfigSerializer(queryset, many=True).data)
 
 
 class StudentViewSet(viewsets.ModelViewSet):
@@ -382,7 +468,7 @@ class StudentViewSet(viewsets.ModelViewSet):
 
 class TeacherViewSet(viewsets.ModelViewSet):
     """ViewSet for teachers."""
-    queryset = Teacher.objects.all()
+    queryset = Teacher.objects.select_related('user')
     serializer_class = TeacherSerializer
     filter_backends = [SearchFilter, OrderingFilter]
     search_fields = ['name', 'user__email']
@@ -415,7 +501,7 @@ class TeacherViewSet(viewsets.ModelViewSet):
 
 class AdminViewSet(viewsets.ModelViewSet):
     """ViewSet for admins (read-only for safety)."""
-    queryset = Admin.objects.all()
+    queryset = Admin.objects.select_related('user')
     serializer_class = AdminSerializer
     permission_classes = [IsAdminUser]
     http_method_names = ['get', 'head', 'options']

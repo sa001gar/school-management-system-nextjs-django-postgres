@@ -18,12 +18,9 @@ import { useAuthContext } from '../contexts/AuthContext'
 import { 
   sessionsApi, 
   classesApi, 
-  sectionsApi, 
   subjectsApi, 
   cocurricularSubjectsApi,
   classSubjectAssignmentsApi,
-  classCocurricularConfigApi,
-  classOptionalConfigApi,
   studentsApi,
   studentResultsApi
 } from '../lib/index'
@@ -60,9 +57,11 @@ export const Dashboard: React.FC = () => {
 
   useEffect(() => {
     if (selectedClass) {
-      checkCocurricularConfig()
-      checkOptionalConfig()
-      fetchSections(selectedClass)
+      fetchClassConfig(selectedClass)
+    } else {
+      setSections([])
+      setHasCocurricular(false)
+      setHasOptional(false)
     }
   }, [selectedClass])
 
@@ -93,73 +92,73 @@ export const Dashboard: React.FC = () => {
     }
   }
 
-  const checkCocurricularConfig = async () => {
+  const fetchClassConfig = async (classId: string) => {
     try {
-      const data = await classCocurricularConfigApi.getByClass(selectedClass)
-      setHasCocurricular(data?.has_cocurricular || false)
+      const config = await classesApi.getConfig(classId)
+      setSections(config.sections || [])
+      setHasCocurricular(config.cocurricular_config?.has_cocurricular || false)
+      setHasOptional(config.optional_config?.has_optional || false)
     } catch (error) {
+      console.error('Error fetching class config:', error)
+      setSections([])
       setHasCocurricular(false)
-    }
-  }
-
-  const checkOptionalConfig = async () => {
-    try {
-      const data = await classOptionalConfigApi.getByClass(selectedClass)
-      setHasOptional(data?.has_optional || false)
-    } catch (error) {
       setHasOptional(false)
-    }
-  }
-
-  const fetchSections = async (classId: string) => {
-    try {
-      const data = await sectionsApi.getByClass(classId)
-      if (data) setSections(data)
-    } catch (error) {
-      console.error('Error fetching sections:', error)
     }
   }
 
   const fetchAssignedSubjects = async () => {
     setLoadingSubjects(true)
     try {
-      // Get assigned subjects for the class
-      const assignments = await classSubjectAssignmentsApi.getByClass(selectedClass)
-
-      // Get all students in the selected class/section/session
-      const students = await studentsApi.getByFilters(selectedSession, selectedClass, selectedSection)
+      // Get assigned subjects and students in parallel
+      const [assignments, students] = await Promise.all([
+        classSubjectAssignmentsApi.getByClass(selectedClass),
+        studentsApi.getByFilters(selectedSession, selectedClass, selectedSection)
+      ])
 
       const totalStudents = students?.length || 0
-      const assignedSubjectsWithStatus: AssignedSubject[] = []
 
-      if (assignments && assignments.length > 0) {
-        // Check completion status for each assigned subject
-        for (const assignment of assignments) {
-          if (assignment.subject) {
-            // Get results for this subject
-            const results = await studentResultsApi.getByClassSection({
-              session_id: selectedSession, 
-              class_id: selectedClass, 
-              section_id: selectedSection, 
-              subject_id: assignment.subject.id
-            })
-
-            // Count students who have meaningful marks (not just default 0)
-            const studentsWithMarks = results?.filter((result) => result.result && result.result.total_marks > 0).length || 0
-            const isComplete = studentsWithMarks === totalStudents && totalStudents > 0
-
-            assignedSubjectsWithStatus.push({
-              ...assignment.subject,
-              isAssigned: true,
-              completionStatus: {
-                totalStudents,
-                studentsWithMarks,
-                isComplete
-              }
-            })
-          }
-        }
+      if (!assignments || assignments.length === 0) {
+        setAssignedSubjects([])
+        setLoadingSubjects(false)
+        return
       }
+
+      // Fetch all subject results in parallel instead of sequentially
+      const subjectIds = assignments.map(a => a.subject?.id).filter(Boolean) as string[]
+      const resultsPromises = subjectIds.map(subjectId => 
+        studentResultsApi.getByClassSection({
+          session_id: selectedSession, 
+          class_id: selectedClass, 
+          section_id: selectedSection, 
+          subject_id: subjectId
+        }).catch(() => [])
+      )
+      
+      const allResults = await Promise.all(resultsPromises)
+      
+      // Build results map
+      const resultsMap = new Map<string, typeof allResults[0]>()
+      subjectIds.forEach((id, index) => {
+        resultsMap.set(id, allResults[index])
+      })
+
+      const assignedSubjectsWithStatus: AssignedSubject[] = assignments
+        .filter(assignment => assignment.subject)
+        .map(assignment => {
+          const results = resultsMap.get(assignment.subject!.id) || []
+          const studentsWithMarks = results.filter((result) => result.result && result.result.total_marks > 0).length
+          const isComplete = studentsWithMarks === totalStudents && totalStudents > 0
+
+          return {
+            ...assignment.subject!,
+            isAssigned: true,
+            completionStatus: {
+              totalStudents,
+              studentsWithMarks,
+              isComplete
+            }
+          }
+        })
 
       setAssignedSubjects(assignedSubjectsWithStatus)
       
@@ -179,11 +178,6 @@ export const Dashboard: React.FC = () => {
     setSelectedClass(classId)
     setSelectedSection('')
     setSelectedSubject('')
-    if (classId) {
-      fetchSections(classId)
-    } else {
-      setSections([])
-    }
   }
 
   const handleSignOut = async () => {
