@@ -1,12 +1,12 @@
 /**
  * Modal/Dialog Component
  */
-'use client';
+"use client";
 
-import * as React from 'react';
-import { cn } from '@/lib/utils';
-import { X } from 'lucide-react';
-import { Button } from './button';
+import * as React from "react";
+import { cn } from "@/lib/utils";
+import { X } from "lucide-react";
+import { Button } from "./button";
 
 interface ModalProps {
   isOpen: boolean;
@@ -14,16 +14,16 @@ interface ModalProps {
   title?: string;
   description?: string;
   children: React.ReactNode;
-  size?: 'sm' | 'md' | 'lg' | 'xl' | 'full';
+  size?: "sm" | "md" | "lg" | "xl" | "full";
   showCloseButton?: boolean;
 }
 
 const sizeClasses = {
-  sm: 'max-w-sm',
-  md: 'max-w-md',
-  lg: 'max-w-lg',
-  xl: 'max-w-xl',
-  full: 'max-w-4xl',
+  sm: "max-w-sm",
+  md: "max-w-md",
+  lg: "max-w-lg",
+  xl: "max-w-xl",
+  full: "max-w-4xl",
 };
 
 export function Modal({
@@ -32,32 +32,32 @@ export function Modal({
   title,
   description,
   children,
-  size = 'md',
+  size = "md",
   showCloseButton = true,
 }: ModalProps) {
   // Close on escape key
   React.useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
+      if (e.key === "Escape") {
         onClose();
       }
     };
 
     if (isOpen) {
-      document.addEventListener('keydown', handleEscape);
-      document.body.style.overflow = 'hidden';
+      document.addEventListener("keydown", handleEscape);
+      document.body.style.overflow = "hidden";
     }
 
     return () => {
-      document.removeEventListener('keydown', handleEscape);
-      document.body.style.overflow = 'unset';
+      document.removeEventListener("keydown", handleEscape);
+      document.body.style.overflow = "unset";
     };
   }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* Backdrop */}
       <div
         className="fixed inset-0 bg-black/50 backdrop-blur-sm transition-opacity"
@@ -68,25 +68,31 @@ export function Modal({
       {/* Modal */}
       <div
         className={cn(
-          'relative z-50 w-full mx-4 bg-white rounded-xl shadow-xl animate-fade-in',
+          "relative z-50 w-full bg-white rounded-xl shadow-xl animate-fade-in flex flex-col max-h-[90vh]",
           sizeClasses[size]
         )}
         role="dialog"
         aria-modal="true"
-        aria-labelledby={title ? 'modal-title' : undefined}
-        aria-describedby={description ? 'modal-description' : undefined}
+        aria-labelledby={title ? "modal-title" : undefined}
+        aria-describedby={description ? "modal-description" : undefined}
       >
-        {/* Header */}
+        {/* Header - Fixed */}
         {(title || showCloseButton) && (
-          <div className="flex items-center justify-between p-4 border-b border-gray-200">
+          <div className="flex items-center justify-between p-4 border-b border-gray-200 shrink-0">
             <div>
               {title && (
-                <h2 id="modal-title" className="text-lg font-semibold text-gray-900">
+                <h2
+                  id="modal-title"
+                  className="text-lg font-semibold text-gray-900"
+                >
                   {title}
                 </h2>
               )}
               {description && (
-                <p id="modal-description" className="mt-1 text-sm text-gray-500">
+                <p
+                  id="modal-description"
+                  className="mt-1 text-sm text-gray-500"
+                >
                   {description}
                 </p>
               )}
@@ -104,8 +110,8 @@ export function Modal({
           </div>
         )}
 
-        {/* Content */}
-        <div className="p-4 max-h-[70vh] overflow-y-auto">{children}</div>
+        {/* Content - Scrollable */}
+        <div className="flex-1 overflow-y-auto">{children}</div>
       </div>
     </div>
   );
@@ -120,7 +126,7 @@ export function ModalFooter({ children, className }: ModalFooterProps) {
   return (
     <div
       className={cn(
-        'flex items-center justify-end gap-3 p-4 border-t border-gray-200 bg-gray-50 rounded-b-xl',
+        "flex items-center justify-end gap-3 p-4 border-t border-gray-200 bg-gray-50 rounded-b-xl shrink-0",
         className
       )}
     >

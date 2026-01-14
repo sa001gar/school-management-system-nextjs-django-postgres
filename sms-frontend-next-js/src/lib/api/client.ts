@@ -217,6 +217,49 @@ class ApiClient {
 
     return this.handleResponse<T>(response);
   }
+
+  // FormData methods for file uploads (no Content-Type header - browser sets it with boundary)
+  async postFormData<T>(endpoint: string, formData: FormData): Promise<T> {
+    let token = getAccessToken();
+    
+    if (token && isTokenExpired(token)) {
+      token = await refreshAccessToken();
+    }
+
+    const headers: HeadersInit = {};
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    
+    const response = await fetch(`${this.baseUrl}${endpoint}`, {
+      method: 'POST',
+      headers,
+      body: formData,
+    });
+
+    return this.handleResponse<T>(response);
+  }
+
+  async patchFormData<T>(endpoint: string, formData: FormData): Promise<T> {
+    let token = getAccessToken();
+    
+    if (token && isTokenExpired(token)) {
+      token = await refreshAccessToken();
+    }
+
+    const headers: HeadersInit = {};
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    
+    const response = await fetch(`${this.baseUrl}${endpoint}`, {
+      method: 'PATCH',
+      headers,
+      body: formData,
+    });
+
+    return this.handleResponse<T>(response);
+  }
 }
 
 // Export singleton instance

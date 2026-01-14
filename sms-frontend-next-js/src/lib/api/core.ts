@@ -397,6 +397,50 @@ export const studentsApi = {
   bulkCreate: async (students: Partial<Student>[]): Promise<Student[]> => {
     return api.post<Student[]>('/students/bulk-create/', { students });
   },
+
+  // Create student with profile picture
+  createWithImage: async (data: Partial<Student>, imageFile?: File | null): Promise<Student> => {
+    if (!imageFile) {
+      // No image, use regular JSON API
+      return api.post<Student>('/students/', data);
+    }
+
+    const formData = new FormData();
+    
+    // Append all data fields
+    Object.entries(data).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') {
+        formData.append(key, String(value));
+      }
+    });
+    
+    // Append image file
+    formData.append('profile_pic', imageFile);
+    
+    return api.postFormData<Student>('/students/', formData);
+  },
+
+  // Update student with profile picture
+  updateWithImage: async (id: string, data: Partial<Student>, imageFile?: File | null): Promise<Student> => {
+    if (!imageFile) {
+      // No new image, use regular JSON API
+      return api.patch<Student>(`/students/${id}/`, data);
+    }
+
+    const formData = new FormData();
+    
+    // Append all data fields
+    Object.entries(data).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') {
+        formData.append(key, String(value));
+      }
+    });
+    
+    // Append image file
+    formData.append('profile_pic', imageFile);
+    
+    return api.patchFormData<Student>(`/students/${id}/`, formData);
+  },
 };
 
 // Student Enrollments API

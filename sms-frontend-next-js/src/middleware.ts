@@ -10,7 +10,15 @@ const protectedRoutes: Record<string, string[]> = {
 };
 
 // Public routes that don't require authentication
-const publicRoutes = ['/login', '/student-login', '/', '/forgot-password'];
+const publicRoutes = [
+  '/login',
+  '/login/admin',
+  '/login/teacher', 
+  '/login/student',
+  '/student-login',
+  '/',
+  '/forgot-password',
+];
 
 // Static asset patterns to skip
 const staticPatterns = [
@@ -56,6 +64,11 @@ export function middleware(request: NextRequest) {
     pathname === route || pathname.startsWith(route + '/')
   );
   
+  // Check if it's a protected route (known route)
+  const isProtectedRoute = Object.keys(protectedRoutes).some(route =>
+    pathname === route || pathname.startsWith(route + '/')
+  );
+  
   // If user is authenticated and trying to access login pages, redirect to dashboard
   if (hasValidToken && pathname.includes('/login')) {
     if (userRole === 'admin') {
@@ -73,22 +86,28 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
   
-  // If no valid access token, redirect to login
+  // If it's NOT a known protected route, allow access (let Next.js handle 404)
+  // This prevents redirect loops on unknown/404 pages
+  if (!isProtectedRoute) {
+    return NextResponse.next();
+  }
+  
+  // If no valid access token and trying to access protected route, redirect to login
   if (!hasValidToken) {
-    // Clear invalid cookies
-    const response = NextResponse.redirect(new URL('/login', request.url));
+    // Preserve the original URL for redirect after login
+    const loginUrl = new URL('/login', request.url);
+    loginUrl.searchParams.set('callbackUrl', pathname);
     
+    const response = NextResponse.redirect(loginUrl);
+    
+    // Clear invalid cookies if token is expired
     if (accessToken && isTokenExpired(accessToken)) {
-      // Token expired - clear cookies
       response.cookies.delete('access_token');
       response.cookies.delete('refresh_token');
       response.cookies.delete('user_role');
     }
     
-    // Preserve the original URL for redirect after login
-    const loginUrl = new URL('/login', request.url);
-    loginUrl.searchParams.set('callbackUrl', pathname);
-    return NextResponse.redirect(loginUrl);
+    return response;
   }
   
   // Check role-based access

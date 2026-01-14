@@ -29,58 +29,92 @@ import {
   clearTokens,
 } from "@/lib/auth/session";
 import { useConnectionStatus } from "@/lib/auth/hooks";
-import type { NavItem } from "@/components/layout/sidebar";
+import type { NavItem, NavGroup } from "@/components/layout/sidebar";
 
-const adminNavItems: NavItem[] = [
+// Grouped navigation items for admin sidebar
+const adminNavGroups: NavGroup[] = [
   {
-    title: "Dashboard",
-    href: "/admin",
-    icon: LayoutDashboard,
+    title: "Overview",
+    defaultOpen: true,
+    items: [
+      {
+        title: "Dashboard",
+        href: "/admin",
+        icon: LayoutDashboard,
+      },
+    ],
   },
   {
-    title: "Students",
-    href: "/admin/students",
-    icon: Users,
+    title: "People Management",
+    defaultOpen: true,
+    items: [
+      {
+        title: "Students",
+        href: "/admin/students",
+        icon: Users,
+      },
+      {
+        title: "Teachers",
+        href: "/admin/teachers",
+        icon: UserCheck,
+      },
+    ],
   },
   {
-    title: "Teachers",
-    href: "/admin/teachers",
-    icon: UserCheck,
+    title: "Academics",
+    defaultOpen: true,
+    items: [
+      {
+        title: "Classes",
+        href: "/admin/classes",
+        icon: GraduationCap,
+      },
+      {
+        title: "Subjects",
+        href: "/admin/subjects",
+        icon: BookOpen,
+      },
+      {
+        title: "Sessions",
+        href: "/admin/sessions",
+        icon: Calendar,
+      },
+    ],
   },
   {
-    title: "Classes",
-    href: "/admin/classes",
-    icon: GraduationCap,
+    title: "Finance",
+    defaultOpen: false,
+    items: [
+      {
+        title: "Fee Management",
+        href: "/admin/fees",
+        icon: DollarSign,
+      },
+    ],
   },
   {
-    title: "Subjects",
-    href: "/admin/subjects",
-    icon: BookOpen,
-  },
-  {
-    title: "Sessions",
-    href: "/admin/sessions",
-    icon: Calendar,
-  },
-  {
-    title: "Fee Management",
-    href: "/admin/fees",
-    icon: DollarSign,
-  },
-  {
-    title: "Settings",
-    href: "/admin/settings",
-    icon: Settings,
+    title: "Configuration",
+    defaultOpen: false,
+    items: [
+      {
+        title: "Settings",
+        href: "/admin/settings",
+        icon: Settings,
+      },
+    ],
   },
 ];
 
-// Loading skeleton component
+// Simple branded loading component
 function AdminLayoutSkeleton() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="text-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
-        <p className="text-gray-500 text-sm">Verifying session...</p>
+    <div className="min-h-screen flex items-center justify-center bg-amber-50/30">
+      <div className="flex flex-col items-center">
+        {/* Simple elegant spinner */}
+        <div className="w-10 h-10 rounded-full border-2 border-amber-100 border-t-amber-600 animate-spin" />
+        <p className="mt-4 text-gray-500 text-sm font-medium animate-pulse">
+          Verifying session...
+        </p>
       </div>
     </div>
   );
@@ -155,28 +189,23 @@ export default function AdminLayout({
     setIsValidating(true);
     setSessionError(null);
 
+    // Optimize: Check local session first (synchronous)
+    const session = getSession();
+    if (!session) {
+      router.push("/login/admin");
+      return;
+    }
+
     try {
-      // First check API health
-      const health = await checkHealth();
-      setApiHealthy(health.api);
+      // Run validation and health check in parallel, but don't block validation on health
+      // We prioritize validation result. If validation works, we're good.
+      const [validationResult, healthResult] = await Promise.all([
+        validateSession(),
+        checkHealth(),
+      ]);
 
-      if (!health.api) {
-        setSessionError(
-          "Cannot connect to server. Please check your connection."
-        );
-        setIsValidating(false);
-        return;
-      }
-
-      // Check local session first
-      const session = getSession();
-      if (!session) {
-        router.push("/login/admin");
-        return;
-      }
-
-      // Validate with backend
-      const { valid, user: validatedUser, error } = await validateSession();
+      setApiHealthy(healthResult.api);
+      const { valid, user: validatedUser } = validationResult;
 
       if (!valid) {
         clearTokens();
@@ -206,8 +235,11 @@ export default function AdminLayout({
     }
   }, [router]);
 
-  // Initial validation
+  // Initial validation - wait for hydration, then validate
   useEffect(() => {
+    // Don't do anything until Zustand store is hydrated
+    if (!isHydrated) return;
+
     // Quick check of local state first
     if (!isAuthenticated) {
       router.push("/login/admin");
@@ -230,7 +262,8 @@ export default function AdminLayout({
     startTransition(() => {
       validateUserSession();
     });
-  }, [isAuthenticated, user, router, validateUserSession]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isHydrated, isAuthenticated, user?.role]);
 
   // Periodic health check
   useEffect(() => {
@@ -261,8 +294,8 @@ export default function AdminLayout({
     });
   };
 
-  // Show loading state
-  if (isValidating || isPending) {
+  // Show loading state while hydrating or validating
+  if (!isHydrated || isValidating || isPending) {
     return <AdminLayoutSkeleton />;
   }
 
@@ -285,11 +318,11 @@ export default function AdminLayout({
   return (
     <>
       {!isOnline && <OfflineBanner />}
-      <DashboardShell navItems={adminNavItems} role="admin">
+      <DashboardShell navGroups={adminNavGroups} role="admin">
         {/* API Health indicator - only show when unhealthy */}
         {!apiHealthy && (
           <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-center gap-2 text-amber-700 text-sm">
-            <AlertCircle className="h-4 w-4 flex-shrink-0" />
+            <AlertCircle className="h-4 w-4 flex shrink-0" />
             <span>
               Server connection is unstable. Some features may not work
               properly.

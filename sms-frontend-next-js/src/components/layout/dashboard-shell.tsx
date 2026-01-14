@@ -2,32 +2,34 @@
  * Dashboard Shell Component
  * Main layout wrapper for dashboard pages
  */
-'use client';
+"use client";
 
-import { cn } from '@/lib/utils';
-import { useUIStore } from '@/stores';
-import { Sidebar, MobileHeader, type NavItem } from './sidebar';
-import { DashboardHeader } from './dashboard-header';
-import { School } from 'lucide-react';
-import type { UserRole } from '@/types';
+import { cn } from "@/lib/utils";
+import { useUIStore } from "@/stores";
+import { Sidebar, MobileHeader, type NavItem, type NavGroup } from "./sidebar";
+import { DashboardHeader } from "./dashboard-header";
+import { School } from "lucide-react";
+import type { UserRole } from "@/types";
 
 export interface DashboardShellProps {
   children: React.ReactNode;
-  navItems: NavItem[];
+  navItems?: NavItem[];
+  navGroups?: NavGroup[];
   role: UserRole;
   sidebarHeader?: React.ReactNode;
   sidebarFooter?: React.ReactNode;
 }
 
 const roleConfig = {
-  admin: { title: 'Admin Dashboard', color: 'from-purple-500 to-indigo-600' },
-  teacher: { title: 'Teacher Dashboard', color: 'from-blue-500 to-cyan-600' },
-  student: { title: 'Student Portal', color: 'from-green-500 to-emerald-600' },
+  admin: { title: "Admin Dashboard", color: "from-amber-500 to-orange-600" },
+  teacher: { title: "Teacher Dashboard", color: "from-blue-500 to-cyan-600" },
+  student: { title: "Student Portal", color: "from-green-500 to-emerald-600" },
 };
 
 export function DashboardShell({
   children,
   navItems,
+  navGroups,
   role,
   sidebarHeader,
   sidebarFooter,
@@ -37,7 +39,12 @@ export function DashboardShell({
 
   const defaultHeader = (
     <div className="flex items-center gap-3">
-      <div className={cn('h-8 w-8 rounded-lg bg-gradient-to-br flex items-center justify-center', config.color)}>
+      <div
+        className={cn(
+          "h-8 w-8 rounded-lg bg-gradient-to-br flex items-center justify-center",
+          config.color
+        )}
+      >
         <School className="h-4 w-4 text-white" />
       </div>
       {!sidebarCollapsed && (
@@ -51,6 +58,7 @@ export function DashboardShell({
       {/* Sidebar */}
       <Sidebar
         items={navItems}
+        groups={navGroups}
         header={sidebarHeader || defaultHeader}
         footer={sidebarFooter}
       />
@@ -58,15 +66,20 @@ export function DashboardShell({
       {/* Main content */}
       <div
         className={cn(
-          'transition-all duration-300 lg:ml-64',
-          sidebarCollapsed && 'lg:ml-20'
+          "transition-all duration-300 lg:ml-64",
+          sidebarCollapsed && "lg:ml-20"
         )}
       >
         {/* Mobile header */}
         <MobileHeader
           title={config.title}
           icon={
-            <div className={cn('h-8 w-8 rounded-lg bg-gradient-to-br flex items-center justify-center', config.color)}>
+            <div
+              className={cn(
+                "h-8 w-8 rounded-lg bg-gradient-to-br flex items-center justify-center",
+                config.color
+              )}
+            >
               <School className="h-4 w-4 text-white" />
             </div>
           }

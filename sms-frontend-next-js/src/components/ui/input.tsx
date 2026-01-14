@@ -2,11 +2,12 @@
  * Input Component
  * Reusable input with variants
  */
-import * as React from 'react';
-import { cn } from '@/lib/utils';
+import * as React from "react";
+import { cn } from "@/lib/utils";
 
-export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
-  label?: string;
+export interface InputProps
+  extends React.InputHTMLAttributes<HTMLInputElement> {
+  label?: React.ReactNode;
   error?: string;
   leftIcon?: React.ReactNode;
   rightIcon?: React.ReactNode;
@@ -15,7 +16,7 @@ export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> 
 const Input = React.forwardRef<HTMLInputElement, InputProps>(
   ({ className, type, label, error, leftIcon, rightIcon, ...props }, ref) => {
     const id = React.useId();
-    
+
     return (
       <div className="w-full">
         {label && (
@@ -36,13 +37,13 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
             id={id}
             type={type}
             className={cn(
-              'flex h-10 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm',
-              'placeholder:text-gray-400',
-              'focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500',
-              'disabled:cursor-not-allowed disabled:opacity-50 disabled:bg-gray-50',
-              leftIcon && 'pl-10',
-              rightIcon && 'pr-10',
-              error && 'border-red-500 focus:ring-red-500 focus:border-red-500',
+              "flex h-10 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm",
+              "placeholder:text-gray-400",
+              "focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500",
+              "disabled:cursor-not-allowed disabled:opacity-50 disabled:bg-gray-50",
+              leftIcon && "pl-10",
+              rightIcon && "pr-10",
+              error && "border-red-500 focus:ring-red-500 focus:border-red-500",
               className
             )}
             ref={ref}
@@ -54,13 +55,11 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
             </div>
           )}
         </div>
-        {error && (
-          <p className="mt-1.5 text-sm text-red-600">{error}</p>
-        )}
+        {error && <p className="mt-1.5 text-sm text-red-600">{error}</p>}
       </div>
     );
   }
 );
-Input.displayName = 'Input';
+Input.displayName = "Input";
 
 export { Input };

@@ -274,41 +274,66 @@ export interface HealthStatus {
   timestamp: number;
 }
 
+// Cache health check results to prevent excessive API calls
+let cachedHealthStatus: HealthStatus | null = null;
+let healthCheckInProgress: Promise<HealthStatus> | null = null;
+const HEALTH_CACHE_TTL = 10000; // 10 seconds cache
+
 /**
  * Check API health and connectivity
+ * Uses dedicated /health/ endpoint and caches results
  */
 export async function checkHealth(): Promise<HealthStatus> {
+  // Return cached result if still valid
+  if (cachedHealthStatus && Date.now() - cachedHealthStatus.timestamp < HEALTH_CACHE_TTL) {
+    return cachedHealthStatus;
+  }
+
+  // Return in-progress check if one exists (debounce)
+  if (healthCheckInProgress) {
+    return healthCheckInProgress;
+  }
+
   const startTime = Date.now();
-  let apiHealthy = false;
-  let authHealthy = false;
 
-  try {
-    // Check API connectivity (unauthenticated endpoint)
-    // We use the root endpoint which should return 200 (API Root) or 401 (Unauthorized)
-    // Both indicate the API is reachable and running
-    const apiResponse = await fetch(`${API_BASE_URL}/`, {
-      method: 'HEAD',
-      signal: AbortSignal.timeout(5000),
-    });
-    apiHealthy = apiResponse.status !== 502 && apiResponse.status !== 503;
-  } catch {
-    apiHealthy = false;
-  }
+  healthCheckInProgress = (async () => {
+    let apiHealthy = false;
+    let authHealthy = false;
 
-  // Check auth if API is healthy
-  if (apiHealthy) {
-    const accessToken = getAccessToken();
-    if (accessToken) {
-      authHealthy = !isTokenExpired(accessToken);
+    try {
+      // Use dedicated health endpoint (no auth required)
+      const apiResponse = await fetch(`${API_BASE_URL}/health/`, {
+        method: 'GET',
+        signal: AbortSignal.timeout(5000),
+      });
+      apiHealthy = apiResponse.ok;
+    } catch {
+      apiHealthy = false;
     }
-  }
 
-  return {
-    api: apiHealthy,
-    auth: authHealthy,
-    latency: Date.now() - startTime,
-    timestamp: Date.now(),
-  };
+    // Check auth if API is healthy
+    if (apiHealthy) {
+      const accessToken = getAccessToken();
+      if (accessToken) {
+        authHealthy = !isTokenExpired(accessToken);
+      }
+    }
+
+    const result: HealthStatus = {
+      api: apiHealthy,
+      auth: authHealthy,
+      latency: Date.now() - startTime,
+      timestamp: Date.now(),
+    };
+
+    // Cache the result
+    cachedHealthStatus = result;
+    healthCheckInProgress = null;
+
+    return result;
+  })();
+
+  return healthCheckInProgress;
 }
 
 // ============================================================================

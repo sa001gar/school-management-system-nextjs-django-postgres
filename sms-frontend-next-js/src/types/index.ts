@@ -181,24 +181,39 @@ export interface Student {
   student_id: string;
   roll_no: string;
   name: string;
+  date_of_birth?: string | null;
+  father_name?: string;
+  mother_name?: string;
+  guardian_name?: string;
+  guardian_relation?: string;
+  phone?: string;
+  alternate_phone?: string;
+  email?: string | null;
+  profile_pic?: string | null;
+  address?: string;
   class_id: string | null;
   section_id: string | null;
   session_id: string | null;
-  created_at: string;
-  class_info?: Class;
-  section_info?: Section;
-  session_info?: Session;
-}
-
-export interface StudentExtended extends Student {
-  guardian_name?: string;
-  guardian_relation?: string;
-  alternate_phone?: string;
-  email?: string | null;
   admission_date?: string | null;
   admission_class_id?: string | null;
   admission_session_id?: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at?: string;
+  class_info?: Class;
+  section_info?: Section;
+  session_info?: Session;
+  // Fee summary (optional, populated on demand)
+  fee_summary?: {
+    total_amount: number;
+    paid_amount: number;
+    pending_amount: number;
+    status: 'paid' | 'partial' | 'pending' | 'overdue';
+  };
 }
+
+// StudentExtended is now just an alias for backward compatibility
+export type StudentExtended = Student;
 
 export type EnrollmentStatus = 'active' | 'promoted' | 'retained' | 'transferred' | 'graduated' | 'dropped';
 

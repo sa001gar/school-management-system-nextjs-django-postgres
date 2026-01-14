@@ -35,6 +35,25 @@ from .cache_utils import CacheMixin, CACHE_TTL_LONG, CACHE_TTL_MEDIUM, invalidat
 
 
 # ============================================================================
+# HEALTH CHECK
+# ============================================================================
+
+class HealthCheckView(APIView):
+    """
+    Public health check endpoint.
+    Returns basic API status without requiring authentication.
+    """
+    permission_classes = [permissions.AllowAny]
+    throttle_classes = []  # No throttling for health checks
+    
+    def get(self, request):
+        return Response({
+            'status': 'healthy',
+            'version': '1.0',
+        }, status=status.HTTP_200_OK)
+
+
+# ============================================================================
 # SECURITY: Custom Throttles
 # ============================================================================
 

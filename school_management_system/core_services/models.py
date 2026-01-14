@@ -354,6 +354,7 @@ class Student(models.Model):
     phone = models.CharField(max_length=20, blank=True)
     alternate_phone = models.CharField(max_length=20, blank=True)
     email = models.EmailField(blank=True, null=True)
+    profile_pic = models.ImageField(upload_to='student_photos/', null=True, blank=True)
     address = models.TextField(blank=True)
     
     # Admission Info
@@ -418,12 +419,29 @@ class Student(models.Model):
         """Get enrollment for a specific session."""
         return self.enrollments.filter(session=session).first()
     
+    @staticmethod
+    def generate_student_id(prefix='STU', year=None):
+        """Generate a unique student ID with format: PREFIX_YEAR_XXXXXX"""
+        import secrets
+        import string
+        from django.utils import timezone
+        
+        if year is None:
+            year = timezone.now().year
+        
+        # Generate 6-character alphanumeric suffix
+        alphabet = string.ascii_uppercase + string.digits
+        suffix = ''.join(secrets.choice(alphabet) for _ in range(6))
+        
+        return f"{prefix}_{year}_{suffix}"
+    
     def save(self, *args, **kwargs):
         # Auto-generate student_id if not provided
         if not self.student_id:
-            import time
-            timestamp = str(int(time.time() * 1000))[-6:]
-            self.student_id = f"STU{timestamp}"
+            # Try to get school prefix from settings or use default
+            prefix = 'RKAV'  # This could be read from SchoolConfig
+            year = self.admission_session.start_date.year if self.admission_session else timezone.now().year
+            self.student_id = self.generate_student_id(prefix=prefix, year=year)
         
         # Set default password if not set and DOB is available
         if not self.password_hash and self.date_of_birth:

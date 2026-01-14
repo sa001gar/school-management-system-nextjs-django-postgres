@@ -297,7 +297,8 @@ class StudentSerializer(serializers.ModelSerializer):
         model = Student
         fields = [
             'id', 'student_id', 'roll_no', 'name', 'date_of_birth',
-            'father_name', 'mother_name', 'phone', 'address',
+            'father_name', 'mother_name', 'guardian_name', 'guardian_relation',
+            'phone', 'alternate_phone', 'email', 'profile_pic', 'address',
             'class_id', 'section_id', 'session_id',
             'class_name', 'section_name', 'session_name',
             'is_active', 'created_at'
@@ -316,8 +317,9 @@ class StudentCreateSerializer(serializers.ModelSerializer):
         model = Student
         fields = [
             'id', 'student_id', 'roll_no', 'name', 'date_of_birth',
-            'father_name', 'mother_name', 'phone', 'address',
-            'class_id', 'section_id', 'session_id', 'password', 'created_at'
+            'father_name', 'mother_name', 'guardian_name', 'guardian_relation',
+            'phone', 'alternate_phone', 'email', 'profile_pic', 'address',
+            'class_id', 'section_id', 'session_id', 'password', 'is_active', 'created_at'
         ]
         read_only_fields = ['id', 'student_id', 'created_at']
     

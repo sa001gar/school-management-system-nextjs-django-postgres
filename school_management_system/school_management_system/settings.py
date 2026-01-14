@@ -158,6 +158,44 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 MEDIA_URL = 'media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
+# Cloudflare R2 Storage Configuration
+# Set USE_R2_STORAGE=True in .env to enable cloud storage
+USE_R2_STORAGE = os.environ.get('USE_R2_STORAGE', 'False').lower() == 'true'
+
+if USE_R2_STORAGE:
+    # Use django-storages with S3-compatible Cloudflare R2
+    STORAGES = {
+        "default": {
+            "BACKEND": "storages.backends.s3.S3Storage",
+            "OPTIONS": {
+                "access_key": os.environ.get('R2_ACCESS_KEY_ID'),
+                "secret_key": os.environ.get('R2_SECRET_ACCESS_KEY'),
+                "bucket_name": os.environ.get('R2_BUCKET_NAME', 'school-media'),
+                "endpoint_url": os.environ.get('R2_ENDPOINT_URL'),  # e.g., https://<account_id>.r2.cloudflarestorage.com
+                "default_acl": None,
+                "querystring_auth": True,
+                "querystring_expire": 3600,
+                "file_overwrite": False,
+                "region_name": "auto",
+            },
+        },
+        "staticfiles": {
+            "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+        },
+    }
+    # R2 public URL for serving files
+    MEDIA_URL = os.environ.get('R2_PUBLIC_URL', 'media/')
+else:
+    # Local storage (default)
+    STORAGES = {
+        "default": {
+            "BACKEND": "django.core.files.storage.FileSystemStorage",
+        },
+        "staticfiles": {
+            "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+        },
+    }
+
 # Default primary key field type
 # https://docs.djangoproject.com/en/6.0/ref/settings/#default-auto-field
 

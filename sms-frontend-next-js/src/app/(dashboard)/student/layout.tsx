@@ -238,7 +238,7 @@ export default function StudentLayout({
       <DashboardShell navItems={studentNavItems} role="student">
         {!apiHealthy && (
           <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-center gap-2 text-amber-700 text-sm">
-            <AlertCircle className="h-4 w-4 flex-shrink-0" />
+            <AlertCircle className="h-4 w-4 flex shrink-0" />
             <span>
               Server connection is unstable. Some features may not work
               properly.

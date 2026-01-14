@@ -4,7 +4,7 @@ URL configuration for Core Services API.
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .views import (
-    LoginView, LogoutView, CurrentUserView,
+    LoginView, LogoutView, CurrentUserView, HealthCheckView,
     SessionViewSet, ClassViewSet, SectionViewSet,
     SubjectViewSet, CocurricularSubjectViewSet, OptionalSubjectViewSet,
     ClassSubjectAssignmentViewSet, ClassOptionalConfigViewSet,
@@ -47,6 +47,9 @@ router.register(r'cocurricular-teacher-assignments', CocurricularTeacherAssignme
 router.register(r'optional-teacher-assignments', OptionalTeacherAssignmentViewSet, basename='optional-teacher-assignments')
 
 urlpatterns = [
+    # Health check (no auth required)
+    path('health/', HealthCheckView.as_view(), name='health-check'),
+    
     # Staff authentication
     path('auth/login/', LoginView.as_view(), name='login'),
     path('auth/logout/', LogoutView.as_view(), name='logout'),
