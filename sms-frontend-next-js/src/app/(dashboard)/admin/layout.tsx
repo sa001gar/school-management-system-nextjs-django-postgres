@@ -2,15 +2,15 @@
  * Admin Dashboard Layout
  * With robust session validation and React 19 optimizations
  */
-'use client';
+"use client";
 
-import { useEffect, useState, useTransition, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
-import { 
-  LayoutDashboard, 
-  Users, 
-  UserCheck, 
-  GraduationCap, 
+import { useEffect, useState, useTransition, useCallback } from "react";
+import { useRouter } from "next/navigation";
+import {
+  LayoutDashboard,
+  Users,
+  UserCheck,
+  GraduationCap,
   BookOpen,
   DollarSign,
   Settings,
@@ -18,53 +18,58 @@ import {
   AlertCircle,
   RefreshCw,
   Wifi,
-  WifiOff
-} from 'lucide-react';
-import { DashboardShell } from '@/components/layout/dashboard-shell';
-import { useAuthStore } from '@/stores/auth-store';
-import { validateSession, checkHealth, getSession, clearTokens } from '@/lib/auth/session';
-import { useConnectionStatus } from '@/lib/auth/hooks';
-import type { NavItem } from '@/components/layout/sidebar';
+  WifiOff,
+} from "lucide-react";
+import { DashboardShell } from "@/components/layout/dashboard-shell";
+import { useAuthStore, useIsHydrated } from "@/stores/auth-store";
+import {
+  validateSession,
+  checkHealth,
+  getSession,
+  clearTokens,
+} from "@/lib/auth/session";
+import { useConnectionStatus } from "@/lib/auth/hooks";
+import type { NavItem } from "@/components/layout/sidebar";
 
 const adminNavItems: NavItem[] = [
   {
-    title: 'Dashboard',
-    href: '/admin',
+    title: "Dashboard",
+    href: "/admin",
     icon: LayoutDashboard,
   },
   {
-    title: 'Students',
-    href: '/admin/students',
+    title: "Students",
+    href: "/admin/students",
     icon: Users,
   },
   {
-    title: 'Teachers',
-    href: '/admin/teachers',
+    title: "Teachers",
+    href: "/admin/teachers",
     icon: UserCheck,
   },
   {
-    title: 'Classes',
-    href: '/admin/classes',
+    title: "Classes",
+    href: "/admin/classes",
     icon: GraduationCap,
   },
   {
-    title: 'Subjects',
-    href: '/admin/subjects',
+    title: "Subjects",
+    href: "/admin/subjects",
     icon: BookOpen,
   },
   {
-    title: 'Sessions',
-    href: '/admin/sessions',
+    title: "Sessions",
+    href: "/admin/sessions",
     icon: Calendar,
   },
   {
-    title: 'Fee Management',
-    href: '/admin/fees',
+    title: "Fee Management",
+    href: "/admin/fees",
     icon: DollarSign,
   },
   {
-    title: 'Settings',
-    href: '/admin/settings',
+    title: "Settings",
+    href: "/admin/settings",
     icon: Settings,
   },
 ];
@@ -82,13 +87,13 @@ function AdminLayoutSkeleton() {
 }
 
 // Session error component
-function SessionError({ 
-  message, 
-  onRetry, 
-  isRetrying 
-}: { 
-  message: string; 
-  onRetry: () => void; 
+function SessionError({
+  message,
+  onRetry,
+  isRetrying,
+}: {
+  message: string;
+  onRetry: () => void;
   isRetrying: boolean;
 }) {
   return (
@@ -97,15 +102,19 @@ function SessionError({
         <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
           <AlertCircle className="h-6 w-6 text-red-600" />
         </div>
-        <h2 className="text-lg font-semibold text-gray-900 mb-2">Session Error</h2>
+        <h2 className="text-lg font-semibold text-gray-900 mb-2">
+          Session Error
+        </h2>
         <p className="text-gray-500 text-sm mb-4">{message}</p>
         <button
           onClick={onRetry}
           disabled={isRetrying}
           className="inline-flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 transition-colors"
         >
-          <RefreshCw className={`h-4 w-4 ${isRetrying ? 'animate-spin' : ''}`} />
-          {isRetrying ? 'Retrying...' : 'Retry'}
+          <RefreshCw
+            className={`h-4 w-4 ${isRetrying ? "animate-spin" : ""}`}
+          />
+          {isRetrying ? "Retrying..." : "Retry"}
         </button>
       </div>
     </div>
@@ -129,14 +138,15 @@ export default function AdminLayout({
 }) {
   const router = useRouter();
   const { user, isAuthenticated, logout } = useAuthStore();
+  const isHydrated = useIsHydrated();
   const isOnline = useConnectionStatus();
-  
+
   // Component state
   const [isValidating, setIsValidating] = useState(true);
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [sessionError, setSessionError] = useState<string | null>(null);
   const [apiHealthy, setApiHealthy] = useState(true);
-  
+
   // React 19 transition for smooth state updates
   const [isPending, startTransition] = useTransition();
 
@@ -151,7 +161,9 @@ export default function AdminLayout({
       setApiHealthy(health.api);
 
       if (!health.api) {
-        setSessionError('Cannot connect to server. Please check your connection.');
+        setSessionError(
+          "Cannot connect to server. Please check your connection."
+        );
         setIsValidating(false);
         return;
       }
@@ -159,7 +171,7 @@ export default function AdminLayout({
       // Check local session first
       const session = getSession();
       if (!session) {
-        router.push('/login/admin');
+        router.push("/login/admin");
         return;
       }
 
@@ -168,27 +180,27 @@ export default function AdminLayout({
 
       if (!valid) {
         clearTokens();
-        router.push('/login/admin');
+        router.push("/login/admin");
         return;
       }
 
       // Check role
-      if (validatedUser?.role !== 'admin') {
-        setSessionError('You do not have admin access.');
+      if (validatedUser?.role !== "admin") {
+        setSessionError("You do not have admin access.");
         // Redirect to appropriate dashboard
-        if (validatedUser?.role === 'teacher') {
-          router.push('/teacher');
-        } else if (validatedUser?.role === 'student') {
-          router.push('/student');
+        if (validatedUser?.role === "teacher") {
+          router.push("/teacher");
+        } else if (validatedUser?.role === "student") {
+          router.push("/student");
         } else {
-          router.push('/login/admin');
+          router.push("/login/admin");
         }
         return;
       }
 
       setIsAuthorized(true);
     } catch (error) {
-      setSessionError('Session validation failed. Please try again.');
+      setSessionError("Session validation failed. Please try again.");
     } finally {
       setIsValidating(false);
     }
@@ -198,18 +210,18 @@ export default function AdminLayout({
   useEffect(() => {
     // Quick check of local state first
     if (!isAuthenticated) {
-      router.push('/login/admin');
+      router.push("/login/admin");
       return;
     }
 
-    if (user?.role !== 'admin') {
+    if (user?.role !== "admin") {
       // Redirect based on role
-      if (user?.role === 'teacher') {
-        router.push('/teacher');
-      } else if (user?.role === 'student') {
-        router.push('/student');
+      if (user?.role === "teacher") {
+        router.push("/teacher");
+      } else if (user?.role === "student") {
+        router.push("/student");
       } else {
-        router.push('/login/admin');
+        router.push("/login/admin");
       }
       return;
     }
@@ -234,7 +246,7 @@ export default function AdminLayout({
         if (!valid) {
           clearTokens();
           logout();
-          router.push('/login/admin');
+          router.push("/login/admin");
         }
       }
     }, 60000); // Check every minute
@@ -257,8 +269,8 @@ export default function AdminLayout({
   // Show error state
   if (sessionError) {
     return (
-      <SessionError 
-        message={sessionError} 
+      <SessionError
+        message={sessionError}
         onRetry={handleRetry}
         isRetrying={isPending}
       />
@@ -273,15 +285,15 @@ export default function AdminLayout({
   return (
     <>
       {!isOnline && <OfflineBanner />}
-      <DashboardShell 
-        navItems={adminNavItems} 
-        role="admin"
-      >
+      <DashboardShell navItems={adminNavItems} role="admin">
         {/* API Health indicator - only show when unhealthy */}
         {!apiHealthy && (
           <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-center gap-2 text-amber-700 text-sm">
             <AlertCircle className="h-4 w-4 flex-shrink-0" />
-            <span>Server connection is unstable. Some features may not work properly.</span>
+            <span>
+              Server connection is unstable. Some features may not work
+              properly.
+            </span>
           </div>
         )}
         {children}

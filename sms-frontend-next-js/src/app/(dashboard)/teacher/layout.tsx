@@ -2,51 +2,57 @@
  * Teacher Dashboard Layout
  * With robust session validation and React 19 optimizations
  */
-'use client';
+"use client";
 
-import { useEffect, useState, useTransition, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
-import { 
-  LayoutDashboard, 
-  BookOpen, 
-  Award, 
+import { useEffect, useState, useTransition, useCallback } from "react";
+import { useRouter } from "next/navigation";
+import {
+  LayoutDashboard,
+  BookOpen,
+  Award,
   FileText,
   Settings,
   AlertCircle,
   RefreshCw,
-  WifiOff
-} from 'lucide-react';
-import { DashboardShell } from '@/components/layout/dashboard-shell';
-import { useAuthStore } from '@/stores/auth-store';
-import { validateSession, checkHealth, getSession, clearTokens } from '@/lib/auth/session';
-import { useConnectionStatus } from '@/lib/auth/hooks';
-import type { NavItem } from '@/components/layout/sidebar';
-import type { UserRole } from '@/types';
+  WifiOff,
+} from "lucide-react";
+import { DashboardShell } from "@/components/layout/dashboard-shell";
+import { useAuthStore } from "@/stores/auth-store";
+import {
+  validateSession,
+  checkHealth,
+  getSession,
+  clearTokens,
+} from "@/lib/auth/session";
+import { useConnectionStatus } from "@/lib/auth/hooks";
+import type { NavItem } from "@/components/layout/sidebar";
+import type { UserRole } from "@/types";
+import { useIsHydrated } from "@/stores/auth-store";
 
 const teacherNavItems: NavItem[] = [
   {
-    title: 'Dashboard',
-    href: '/teacher',
+    title: "Dashboard",
+    href: "/teacher",
     icon: LayoutDashboard,
   },
   {
-    title: 'Marks Entry',
-    href: '/teacher/marks',
+    title: "Marks Entry",
+    href: "/teacher/marks",
     icon: BookOpen,
   },
   {
-    title: 'Co-curricular',
-    href: '/teacher/cocurricular',
+    title: "Co-curricular",
+    href: "/teacher/cocurricular",
     icon: Award,
   },
   {
-    title: 'Marksheet',
-    href: '/teacher/marksheet',
+    title: "Marksheet",
+    href: "/teacher/marksheet",
     icon: FileText,
   },
   {
-    title: 'Settings',
-    href: '/teacher/settings',
+    title: "Settings",
+    href: "/teacher/settings",
     icon: Settings,
   },
 ];
@@ -62,22 +68,34 @@ function TeacherLayoutSkeleton() {
   );
 }
 
-function SessionError({ message, onRetry, isRetrying }: { message: string; onRetry: () => void; isRetrying: boolean }) {
+function SessionError({
+  message,
+  onRetry,
+  isRetrying,
+}: {
+  message: string;
+  onRetry: () => void;
+  isRetrying: boolean;
+}) {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
       <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-6 text-center">
         <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
           <AlertCircle className="h-6 w-6 text-red-600" />
         </div>
-        <h2 className="text-lg font-semibold text-gray-900 mb-2">Session Error</h2>
+        <h2 className="text-lg font-semibold text-gray-900 mb-2">
+          Session Error
+        </h2>
         <p className="text-gray-500 text-sm mb-4">{message}</p>
         <button
           onClick={onRetry}
           disabled={isRetrying}
           className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
         >
-          <RefreshCw className={`h-4 w-4 ${isRetrying ? 'animate-spin' : ''}`} />
-          {isRetrying ? 'Retrying...' : 'Retry'}
+          <RefreshCw
+            className={`h-4 w-4 ${isRetrying ? "animate-spin" : ""}`}
+          />
+          {isRetrying ? "Retrying..." : "Retry"}
         </button>
       </div>
     </div>
@@ -100,8 +118,9 @@ export default function TeacherLayout({
 }) {
   const router = useRouter();
   const { user, isAuthenticated, logout } = useAuthStore();
+  const isHydrated = useIsHydrated();
   const isOnline = useConnectionStatus();
-  
+
   const [isValidating, setIsValidating] = useState(true);
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [sessionError, setSessionError] = useState<string | null>(null);
@@ -117,14 +136,16 @@ export default function TeacherLayout({
       setApiHealthy(health.api);
 
       if (!health.api) {
-        setSessionError('Cannot connect to server. Please check your connection.');
+        setSessionError(
+          "Cannot connect to server. Please check your connection."
+        );
         setIsValidating(false);
         return;
       }
 
       const session = getSession();
       if (!session) {
-        router.push('/login/teacher');
+        router.push("/login/teacher");
         return;
       }
 
@@ -132,25 +153,26 @@ export default function TeacherLayout({
 
       if (!valid) {
         clearTokens();
-        router.push('/login/teacher');
+        router.push("/login/teacher");
         return;
       }
 
       // Check if user has teacher or admin access
-      const hasAccess = validatedUser?.role === 'teacher' || validatedUser?.role === 'admin';
+      const hasAccess =
+        validatedUser?.role === "teacher" || validatedUser?.role === "admin";
       if (!hasAccess) {
-        setSessionError('You do not have teacher access.');
-        if (validatedUser?.role === 'student') {
-          router.push('/student');
+        setSessionError("You do not have teacher access.");
+        if (validatedUser?.role === "student") {
+          router.push("/student");
         } else {
-          router.push('/login/teacher');
+          router.push("/login/teacher");
         }
         return;
       }
 
       setIsAuthorized(true);
     } catch {
-      setSessionError('Session validation failed. Please try again.');
+      setSessionError("Session validation failed. Please try again.");
     } finally {
       setIsValidating(false);
     }
@@ -158,18 +180,18 @@ export default function TeacherLayout({
 
   useEffect(() => {
     if (!isAuthenticated) {
-      router.push('/login/teacher');
+      router.push("/login/teacher");
       return;
     }
 
     // Check if user has teacher or admin access
     const userRole = user?.role as UserRole | undefined;
-    const hasAccess = userRole === 'teacher' || userRole === 'admin';
+    const hasAccess = userRole === "teacher" || userRole === "admin";
     if (!hasAccess) {
-      if (userRole === 'student') {
-        router.push('/student');
+      if (userRole === "student") {
+        router.push("/student");
       } else {
-        router.push('/login/teacher');
+        router.push("/login/teacher");
       }
       return;
     }
@@ -191,7 +213,7 @@ export default function TeacherLayout({
         if (!valid) {
           clearTokens();
           logout();
-          router.push('/login/teacher');
+          router.push("/login/teacher");
         }
       }
     }, 60000);
@@ -210,7 +232,13 @@ export default function TeacherLayout({
   }
 
   if (sessionError) {
-    return <SessionError message={sessionError} onRetry={handleRetry} isRetrying={isPending} />;
+    return (
+      <SessionError
+        message={sessionError}
+        onRetry={handleRetry}
+        isRetrying={isPending}
+      />
+    );
   }
 
   if (!isAuthorized) {
@@ -220,14 +248,14 @@ export default function TeacherLayout({
   return (
     <>
       {!isOnline && <OfflineBanner />}
-      <DashboardShell 
-        navItems={teacherNavItems} 
-        role="teacher"
-      >
+      <DashboardShell navItems={teacherNavItems} role="teacher">
         {!apiHealthy && (
           <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-center gap-2 text-amber-700 text-sm">
             <AlertCircle className="h-4 w-4 flex shrink-0" />
-            <span>Server connection is unstable. Some features may not work properly.</span>
+            <span>
+              Server connection is unstable. Some features may not work
+              properly.
+            </span>
           </div>
         )}
         {children}

@@ -284,7 +284,9 @@ export async function checkHealth(): Promise<HealthStatus> {
 
   try {
     // Check API connectivity (unauthenticated endpoint)
-    const apiResponse = await fetch(`${API_BASE_URL}/sessions/`, {
+    // We use the root endpoint which should return 200 (API Root) or 401 (Unauthorized)
+    // Both indicate the API is reachable and running
+    const apiResponse = await fetch(`${API_BASE_URL}/`, {
       method: 'HEAD',
       signal: AbortSignal.timeout(5000),
     });
