@@ -265,6 +265,10 @@ export const classOptionalAssignmentsApi = {
     return api.post<ClassOptionalAssignment>('/class-optional-assignments/', data);
   },
 
+  bulkUpdate: async (data: { class_id: string; optional_subject_ids: string[] }): Promise<void> => {
+    return api.post<void>('/class-optional-assignments/bulk-update/', data);
+  },
+
   delete: async (id: string): Promise<void> => {
     await api.delete(`/class-optional-assignments/${id}/`);
   },
@@ -340,6 +344,10 @@ export const schoolConfigApi = {
     return results[0] || null;
   },
 
+  getByClasses: async (classIds: string[]): Promise<SchoolConfig[]> => {
+    return api.post<SchoolConfig[]>('/school-config/by-classes/', { class_ids: classIds });
+  },
+
   create: async (data: Partial<SchoolConfig>): Promise<SchoolConfig> => {
     return api.post<SchoolConfig>('/school-config/', data);
   },
@@ -357,6 +365,7 @@ export const studentsApi = {
     session_id?: string;
     search?: string;
     page?: number;
+    ordering?: string;
   }): Promise<PaginatedResponse<Student>> => {
     return api.get<PaginatedResponse<Student>>('/students/', params);
   },
@@ -399,7 +408,7 @@ export const studentsApi = {
   },
 
   bulkCreate: async (students: Partial<Student>[]): Promise<Student[]> => {
-    return api.post<Student[]>('/students/bulk-create/', { students });
+    return api.post<Student[]>('/students/bulk/', { students });
   },
 
   // Create student with profile picture
@@ -507,6 +516,7 @@ export const teacherAssignmentsApi = {
   getAll: async (params?: {
     teacher_id?: string;
     session_id?: string;
+    class_id?: string;
   }): Promise<TeacherAssignment[]> => {
     const response = await api.get<{ results?: TeacherAssignment[] } | TeacherAssignment[]>(
       '/teacher-assignments/',
@@ -535,6 +545,7 @@ export const classTeachersApi = {
   getAll: async (params?: {
     session_id?: string;
     teacher_id?: string;
+    class_id?: string;
   }): Promise<ClassTeacher[]> => {
     const response = await api.get<{ results?: ClassTeacher[] } | ClassTeacher[]>(
       '/class-teachers/',
@@ -554,5 +565,115 @@ export const classTeachersApi = {
 
   delete: async (id: string): Promise<void> => {
     await api.delete(`/class-teachers/${id}/`);
+  },
+};
+
+// ============================================================================
+// Dynamic Marks Distribution API
+// ============================================================================
+
+// Assessment Categories API
+export const assessmentCategoriesApi = {
+  getAll: async (): Promise<import('@/types').AssessmentCategory[]> => {
+    const response = await api.get<{ results?: import('@/types').AssessmentCategory[] } | import('@/types').AssessmentCategory[]>('/assessment-categories/');
+    return Array.isArray(response) ? response : (response.results || []);
+  },
+
+  getById: async (id: string): Promise<import('@/types').AssessmentCategory> => {
+    return api.get<import('@/types').AssessmentCategory>(`/assessment-categories/${id}/`);
+  },
+
+  create: async (data: Partial<import('@/types').AssessmentCategory>): Promise<import('@/types').AssessmentCategory> => {
+    return api.post<import('@/types').AssessmentCategory>('/assessment-categories/', data);
+  },
+
+  update: async (id: string, data: Partial<import('@/types').AssessmentCategory>): Promise<import('@/types').AssessmentCategory> => {
+    return api.patch<import('@/types').AssessmentCategory>(`/assessment-categories/${id}/`, data);
+  },
+
+  delete: async (id: string): Promise<void> => {
+    await api.delete(`/assessment-categories/${id}/`);
+  },
+
+  reorder: async (categoryIds: string[]): Promise<void> => {
+    await api.post('/assessment-categories/reorder/', { category_ids: categoryIds });
+  },
+};
+
+// Core Marks Distribution API
+export const coreMarksDistributionApi = {
+  getAll: async (classId?: string): Promise<import('@/types').CoreSubjectMarksDistribution[]> => {
+    const response = await api.get<{ results?: import('@/types').CoreSubjectMarksDistribution[] } | import('@/types').CoreSubjectMarksDistribution[]>(
+      '/core-marks-distribution/',
+      classId ? { class_id: classId } : undefined
+    );
+    return Array.isArray(response) ? response : (response.results || []);
+  },
+
+  getByClasses: async (classIds: string[]): Promise<import('@/types').CoreSubjectMarksDistribution[]> => {
+    return api.post<import('@/types').CoreSubjectMarksDistribution[]>('/core-marks-distribution/by-classes/', { class_ids: classIds });
+  },
+
+  bulkUpdate: async (data: {
+    class_id: string;
+    distributions: Array<{ assessment_category_id: string; full_marks: number }>;
+  }): Promise<import('@/types').CoreSubjectMarksDistribution[]> => {
+    return api.post<import('@/types').CoreSubjectMarksDistribution[]>('/core-marks-distribution/bulk-update/', data);
+  },
+
+  delete: async (id: string): Promise<void> => {
+    await api.delete(`/core-marks-distribution/${id}/`);
+  },
+};
+
+// Cocurricular Marks Distribution API
+export const cocurricularMarksDistributionApi = {
+  getAll: async (params?: { class_id?: string; cocurricular_subject_id?: string }): Promise<import('@/types').CocurricularMarksDistribution[]> => {
+    const response = await api.get<{ results?: import('@/types').CocurricularMarksDistribution[] } | import('@/types').CocurricularMarksDistribution[]>(
+      '/cocurricular-marks-distribution/',
+      params
+    );
+    return Array.isArray(response) ? response : (response.results || []);
+  },
+
+  bulkUpdate: async (data: {
+    class_id: string;
+    distributions: Array<{
+      cocurricular_subject_id: string;
+      assessment_category_id: string;
+      full_marks: number;
+    }>;
+  }): Promise<import('@/types').CocurricularMarksDistribution[]> => {
+    return api.post<import('@/types').CocurricularMarksDistribution[]>('/cocurricular-marks-distribution/bulk-update/', data);
+  },
+
+  delete: async (id: string): Promise<void> => {
+    await api.delete(`/cocurricular-marks-distribution/${id}/`);
+  },
+};
+
+// Optional Marks Distribution API
+export const optionalMarksDistributionApi = {
+  getAll: async (params?: { class_id?: string; optional_subject_id?: string }): Promise<import('@/types').OptionalMarksDistribution[]> => {
+    const response = await api.get<{ results?: import('@/types').OptionalMarksDistribution[] } | import('@/types').OptionalMarksDistribution[]>(
+      '/optional-marks-distribution/',
+      params
+    );
+    return Array.isArray(response) ? response : (response.results || []);
+  },
+
+  bulkUpdate: async (data: {
+    class_id: string;
+    distributions: Array<{
+      optional_subject_id: string;
+      assessment_category_id: string;
+      full_marks: number;
+    }>;
+  }): Promise<import('@/types').OptionalMarksDistribution[]> => {
+    return api.post<import('@/types').OptionalMarksDistribution[]>('/optional-marks-distribution/bulk-update/', data);
+  },
+
+  delete: async (id: string): Promise<void> => {
+    await api.delete(`/optional-marks-distribution/${id}/`);
   },
 };

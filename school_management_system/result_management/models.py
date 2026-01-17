@@ -12,6 +12,7 @@ class StudentResult(models.Model):
     student = models.ForeignKey('core_services.Student', on_delete=models.CASCADE, related_name='results')
     subject = models.ForeignKey('core_services.Subject', on_delete=models.CASCADE, related_name='results')
     session = models.ForeignKey('core_services.Session', on_delete=models.CASCADE, related_name='results')
+    school = models.ForeignKey('core_services.School', on_delete=models.CASCADE, null=True, blank=True, related_name='student_results')
     
     # First term marks
     first_summative_full = models.IntegerField(default=40)
@@ -112,6 +113,7 @@ class StudentCocurricularResult(models.Model):
     student = models.ForeignKey('core_services.Student', on_delete=models.CASCADE, related_name='cocurricular_results')
     cocurricular_subject = models.ForeignKey('core_services.CocurricularSubject', on_delete=models.CASCADE, related_name='results')
     session = models.ForeignKey('core_services.Session', on_delete=models.CASCADE, related_name='cocurricular_results')
+    school = models.ForeignKey('core_services.School', on_delete=models.CASCADE, null=True, blank=True, related_name='student_cocurricular_results')
     
     # Term marks (new field structure)
     first_term_marks = models.IntegerField(default=0)
@@ -153,6 +155,7 @@ class StudentOptionalResult(models.Model):
     student = models.ForeignKey('core_services.Student', on_delete=models.CASCADE, related_name='optional_results')
     optional_subject = models.ForeignKey('core_services.OptionalSubject', on_delete=models.CASCADE, related_name='results')
     session = models.ForeignKey('core_services.Session', on_delete=models.CASCADE, related_name='optional_results')
+    school = models.ForeignKey('core_services.School', on_delete=models.CASCADE, null=True, blank=True, related_name='student_optional_results')
     
     obtained_marks = models.IntegerField(default=0)
     full_marks = models.IntegerField(default=50)

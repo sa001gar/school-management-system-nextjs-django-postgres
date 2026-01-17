@@ -61,7 +61,7 @@ export function StudentsManagement() {
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [profilePicFile, setProfilePicFile] = useState<File | null>(null);
   const [profilePicPreview, setProfilePicPreview] = useState<string | null>(
-    null
+    null,
   );
 
   // Form data
@@ -103,6 +103,19 @@ export function StudentsManagement() {
     ? sections?.filter((s) => s.class_id === selectedClass) || []
     : [];
 
+  const [sortConfig, setSortConfig] = useState<{
+    key: string;
+    direction: "asc" | "desc";
+  }>({ key: "roll_no", direction: "asc" });
+
+  const handleSort = (key: string) => {
+    setSortConfig((current) => ({
+      key,
+      direction:
+        current.key === key && current.direction === "asc" ? "desc" : "asc",
+    }));
+  };
+
   const { data: studentsData, isLoading } = useQuery({
     queryKey: [
       "students",
@@ -112,6 +125,7 @@ export function StudentsManagement() {
         section_id: selectedSection,
         search,
         page,
+        sort: sortConfig,
       },
     ],
     queryFn: () =>
@@ -121,13 +135,15 @@ export function StudentsManagement() {
         section_id: selectedSection || undefined,
         search: search || undefined,
         page,
+        ordering: `${sortConfig.direction === "desc" ? "-" : ""}${
+          sortConfig.key === "roll_no" ? "roll_no_int" : sortConfig.key
+        }`,
       }),
   });
 
-  // Optimistic updates
   const [optimisticStudents, addOptimisticStudent] = useOptimistic(
     studentsData?.results || [],
-    (state: Student[], newStudent: Student) => [...state, newStudent]
+    (state: Student[], newStudent: Student) => [...state, newStudent],
   );
 
   // Mutations
@@ -445,11 +461,21 @@ export function StudentsManagement() {
                   <TableHead className="text-amber-900 font-semibold">
                     Student ID
                   </TableHead>
-                  <TableHead className="text-amber-900 font-semibold">
-                    Name
+                  <TableHead
+                    className="text-amber-900 font-semibold cursor-pointer hover:text-amber-700 transition-colors select-none"
+                    onClick={() => handleSort("name")}
+                  >
+                    Name{" "}
+                    {sortConfig.key === "name" &&
+                      (sortConfig.direction === "asc" ? "↑" : "↓")}
                   </TableHead>
-                  <TableHead className="text-amber-900 font-semibold">
-                    Roll No
+                  <TableHead
+                    className="text-amber-900 font-semibold cursor-pointer hover:text-amber-700 transition-colors select-none"
+                    onClick={() => handleSort("roll_no")}
+                  >
+                    Roll No{" "}
+                    {sortConfig.key === "roll_no" &&
+                      (sortConfig.direction === "asc" ? "↑" : "↓")}
                   </TableHead>
                   <TableHead className="text-amber-900 font-semibold">
                     Class

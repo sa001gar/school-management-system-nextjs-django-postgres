@@ -3,10 +3,11 @@ import type { NextRequest } from 'next/server';
 
 // Define protected routes and their allowed roles
 const protectedRoutes: Record<string, string[]> = {
-  '/admin': ['admin'],
-  '/teacher': ['admin', 'teacher'],
+  '/site-admin': ['site_admin'],
+  '/admin': ['admin', 'site_admin'], // Site admin can access school admin areas
+  '/teacher': ['admin', 'teacher', 'site_admin'],
   '/student': ['student'],
-  '/dashboard': ['admin', 'teacher'],
+  '/dashboard': ['admin', 'teacher', 'site_admin'],
 };
 
 // Public routes that don't require authentication
@@ -71,7 +72,9 @@ export function middleware(request: NextRequest) {
   
   // If user is authenticated and trying to access login pages, redirect to dashboard
   if (hasValidToken && pathname.includes('/login')) {
-    if (userRole === 'admin') {
+    if (userRole === 'site_admin') {
+      return NextResponse.redirect(new URL('/site-admin', request.url));
+    } else if (userRole === 'admin') {
       return NextResponse.redirect(new URL('/admin', request.url));
     } else if (userRole === 'teacher') {
       return NextResponse.redirect(new URL('/teacher', request.url));
@@ -115,7 +118,9 @@ export function middleware(request: NextRequest) {
     if (pathname.startsWith(route)) {
       if (!userRole || !allowedRoles.includes(userRole)) {
         // User doesn't have permission, redirect to appropriate dashboard
-        if (userRole === 'admin') {
+        if (userRole === 'site_admin') {
+          return NextResponse.redirect(new URL('/site-admin', request.url));
+        } else if (userRole === 'admin') {
           return NextResponse.redirect(new URL('/admin', request.url));
         } else if (userRole === 'teacher') {
           return NextResponse.redirect(new URL('/teacher', request.url));

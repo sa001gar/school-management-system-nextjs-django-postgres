@@ -7,15 +7,31 @@
 // User & Auth Types
 // ============================================================================
 
-export type UserRole = 'admin' | 'teacher' | 'student';
+export type UserRole = 'site_admin' | 'admin' | 'teacher' | 'student';
+
+export interface School {
+  id: string;
+  name: string;
+  code: string;
+  logo: string | null;
+  address: string;
+  city: string;
+  state: string;
+  pincode: string;
+  email: string;
+  phone: string;
+  website: string;
+  student_id_prefix?: string;
+}
 
 export interface User {
   id: string;
   email: string;
-  username?: string;
+  username: string;
   name?: string;
   role: UserRole;
-  is_active?: boolean;
+  is_active: boolean;
+  school?: School | null; // Site admin might have null school
   class_info?: Class;
   section_info?: Section;
 }
@@ -792,4 +808,59 @@ export interface PaymentFormData {
   reference_number?: string;
   payment_date?: string;
   remarks?: string;
+}
+
+// ============================================================================
+// Dynamic Marks Distribution Types
+// ============================================================================
+
+export type AssessmentCategoryType = 'summative' | 'formative' | 'project' | 'practical' | 'other';
+
+export interface AssessmentCategory {
+  id: string;
+  school_id: string;
+  name: string;
+  code: string;
+  category_type: AssessmentCategoryType;
+  display_order: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CoreSubjectMarksDistribution {
+  id: string;
+  class_id: string;
+  class_name?: string;
+  assessment_category?: AssessmentCategory;
+  assessment_category_id: string;
+  full_marks: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CocurricularMarksDistribution {
+  id: string;
+  class_id: string;
+  class_name?: string;
+  cocurricular_subject_id: string;
+  cocurricular_subject_name?: string;
+  assessment_category?: AssessmentCategory;
+  assessment_category_id: string;
+  full_marks: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface OptionalMarksDistribution {
+  id: string;
+  class_id: string;
+  class_name?: string;
+  optional_subject_id: string;
+  optional_subject_name?: string;
+  assessment_category?: AssessmentCategory;
+  assessment_category_id: string;
+  full_marks: number;
+  created_at: string;
+  updated_at: string;
 }

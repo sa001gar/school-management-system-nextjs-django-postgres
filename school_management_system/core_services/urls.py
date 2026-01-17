@@ -11,6 +11,7 @@ from .views import (
     ClassOptionalAssignmentViewSet, ClassCocurricularConfigViewSet,
     ClassMarksDistributionViewSet, SchoolConfigViewSet,
     StudentViewSet, TeacherViewSet, AdminViewSet,
+    SchoolViewSet,
     # Student Portal
     StudentLoginView, StudentPortalView, StudentFeesView,
     # Teacher endpoints
@@ -21,6 +22,13 @@ from .views import (
     StudentEnrollmentViewSet, ClassTeacherViewSet, SessionLockView,
     CocurricularTeacherAssignmentViewSet, OptionalTeacherAssignmentViewSet,
     MarksheetGenerationView, CheckMarksEntryAuthorizationView
+)
+# Import dynamic marks distribution ViewSets
+from .views_marks import (
+    AssessmentCategoryViewSet,
+    CoreSubjectMarksDistributionViewSet,
+    CocurricularMarksDistributionViewSet,
+    OptionalMarksDistributionViewSet
 )
 
 router = DefaultRouter()
@@ -39,12 +47,18 @@ router.register(r'school-config', SchoolConfigViewSet)
 router.register(r'students', StudentViewSet)
 router.register(r'teachers', TeacherViewSet)
 router.register(r'admins', AdminViewSet)
+router.register(r'schools', SchoolViewSet)
 router.register(r'teacher-assignments', TeacherAssignmentViewSet)
 # New SMS routes
 router.register(r'student-enrollments', StudentEnrollmentViewSet, basename='student-enrollments')
 router.register(r'class-teachers', ClassTeacherViewSet, basename='class-teachers')
 router.register(r'cocurricular-teacher-assignments', CocurricularTeacherAssignmentViewSet, basename='cocurricular-teacher-assignments')
 router.register(r'optional-teacher-assignments', OptionalTeacherAssignmentViewSet, basename='optional-teacher-assignments')
+# Dynamic marks distribution routes
+router.register(r'assessment-categories', AssessmentCategoryViewSet, basename='assessment-categories')
+router.register(r'core-marks-distribution', CoreSubjectMarksDistributionViewSet, basename='core-marks-distribution')
+router.register(r'cocurricular-marks-distribution', CocurricularMarksDistributionViewSet, basename='cocurricular-marks-distribution')
+router.register(r'optional-marks-distribution', OptionalMarksDistributionViewSet, basename='optional-marks-distribution')
 
 urlpatterns = [
     # Health check (no auth required)

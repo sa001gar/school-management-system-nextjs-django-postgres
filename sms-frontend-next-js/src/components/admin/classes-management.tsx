@@ -16,7 +16,9 @@ import {
   Layers,
   LayoutGrid,
   AlertCircle,
+  Settings,
 } from "lucide-react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -39,7 +41,7 @@ export function ClassesManagement() {
 
   // UI State
   const [expandedClasses, setExpandedClasses] = useState<Set<string>>(
-    new Set()
+    new Set(),
   );
   const [isClassModalOpen, setIsClassModalOpen] = useState(false);
   const [isSectionModalOpen, setIsSectionModalOpen] = useState(false);
@@ -307,7 +309,7 @@ export function ClassesManagement() {
                 <p className="text-2xl font-bold text-orange-800">
                   {classesWithSections.reduce(
                     (acc, c) => acc + (c.sections?.length || 0),
-                    0
+                    0,
                   )}
                 </p>
                 <p className="text-xs text-orange-600">Total Sections</p>
@@ -324,10 +326,10 @@ export function ClassesManagement() {
                   {Math.round(
                     (classesWithSections.reduce(
                       (acc, c) => acc + (c.sections?.length || 0),
-                      0
+                      0,
                     ) /
                       (classesWithSections.length || 1)) *
-                      10
+                      10,
                   ) / 10}
                 </p>
                 <p className="text-xs text-green-600">Avg Sections/Class</p>
@@ -379,7 +381,7 @@ export function ClassesManagement() {
                   "border-l-4 transition-all duration-200",
                   isExpanded
                     ? "border-l-amber-500 shadow-lg bg-white"
-                    : "border-l-gray-200 hover:border-l-amber-300 hover:shadow-md"
+                    : "border-l-gray-200 hover:border-l-amber-300 hover:shadow-md",
                 )}
               >
                 <CardContent className="p-0">
@@ -388,7 +390,7 @@ export function ClassesManagement() {
                     className={cn(
                       "flex items-center gap-4 p-4 cursor-pointer",
                       isExpanded &&
-                        "bg-linear-to-r from-amber-50 to-orange-50 border-b"
+                        "bg-linear-to-r from-amber-50 to-orange-50 border-b",
                     )}
                     onClick={() => toggleExpand(cls.id)}
                   >
@@ -431,8 +433,19 @@ export function ClassesManagement() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => openAddSection(cls)}
+                        asChild
                         className="text-amber-700 hover:text-amber-800 hover:bg-amber-100"
+                      >
+                        <Link href={`/admin/classes/${cls.id}`}>
+                          <Settings className="h-4 w-4 mr-1" />
+                          Configure
+                        </Link>
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => openAddSection(cls)}
+                        className="text-gray-600 hover:text-gray-800 hover:bg-gray-100"
                       >
                         <Plus className="h-4 w-4 mr-1" />
                         <span className="hidden sm:inline">Section</span>
@@ -481,7 +494,7 @@ export function ClassesManagement() {
                                   (a.class_id === cls.id ||
                                     a.class_name === cls.name) &&
                                   (a.section_id === section.id ||
-                                    a.section_name === section.name)
+                                    a.section_name === section.name),
                               ) || [];
 
                             return (

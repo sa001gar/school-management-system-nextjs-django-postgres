@@ -35,6 +35,10 @@ export const setTokens = (accessToken: string, refreshToken: string): void => {
   if (!isClient) return;
   localStorage.setItem(ACCESS_TOKEN_KEY, accessToken);
   localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
+  
+  // Also set in cookie for middleware
+  document.cookie = `access_token=${accessToken}; path=/; max-age=${60 * 60}; SameSite=Lax`;
+  document.cookie = `refresh_token=${refreshToken}; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Lax`;
 };
 
 /**
@@ -44,6 +48,11 @@ export const clearTokens = (): void => {
   if (!isClient) return;
   localStorage.removeItem(ACCESS_TOKEN_KEY);
   localStorage.removeItem(REFRESH_TOKEN_KEY);
+  
+  // Clear cookies
+  document.cookie = 'access_token=; path=/; max-age=0';
+  document.cookie = 'refresh_token=; path=/; max-age=0';
+  document.cookie = 'user_role=; path=/; max-age=0';
 };
 
 /**

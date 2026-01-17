@@ -18,11 +18,13 @@ from .models import (
     CustomUser, Admin, Teacher, Session, Class, Section,
     Subject, CocurricularSubject, OptionalSubject, ClassSubjectAssignment,
     ClassOptionalConfig, ClassOptionalAssignment, ClassCocurricularConfig,
-    ClassMarksDistribution, SchoolConfig, Student, TeacherAssignment
+    ClassMarksDistribution, SchoolConfig, Student, TeacherAssignment,
+    School
 )
 from .serializers import (
     UserSerializer, AdminSerializer, TeacherSerializer, TeacherCreateSerializer,
     LoginSerializer, SessionSerializer, ClassSerializer, SectionSerializer,
+    SchoolSerializer,
     SectionCreateSerializer, SubjectSerializer, CocurricularSubjectSerializer,
     OptionalSubjectSerializer, ClassSubjectAssignmentSerializer,
     ClassOptionalConfigSerializer, ClassOptionalAssignmentSerializer,
@@ -77,7 +79,79 @@ class LoginRateThrottle(AnonRateThrottle):
 class IsAdminUser(permissions.BasePermission):
     """Permission class to check if user is admin."""
     def has_permission(self, request, view):
-        return request.user and request.user.is_authenticated and request.user.role == 'admin'
+        return request.user.is_authenticated and request.user.role == 'admin'
+
+
+class IsSiteAdmin(permissions.BasePermission):
+    """Permission class to check if user is site_admin."""
+    def has_permission(self, request, view):
+        return request.user.is_authenticated and request.user.role == 'site_admin'
+
+
+class SchoolScopedMixin:
+    """
+    Mixin to filter queryset by user's school and assign school on create.
+    Site admins see all (or filtered).
+    """
+    def get_queryset(self):
+        # Start with the base queryset from the ViewSet
+        queryset = super().get_queryset()
+        user = self.request.user
+        
+        if not user.is_authenticated:
+            return queryset.none()
+            
+        if user.role == 'site_admin':
+            # Site admin can see all, or filter by school_id param
+            school_id = self.request.query_params.get('school_id')
+            if school_id:
+                return queryset.filter(school_id=school_id)
+            return queryset
+            
+        # For others, filter by their school
+        if user.school:
+            return queryset.filter(school=user.school)
+            
+        return queryset.none()
+    
+    def perform_create(self, serializer):
+        user = self.request.user
+        if user.role == 'site_admin':
+            # Site admin must provide school in payload or it fails validation if required
+            serializer.save()
+        else:
+            # Auto-assign school for school-level users
+            serializer.save(school=user.school)
+
+
+class SchoolViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for managing schools.
+    Site admin manages all. School admin can update own school.
+    """
+    queryset = School.objects.all()
+    serializer_class = SchoolSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    filter_backends = [SearchFilter, OrderingFilter]
+    search_fields = ['name', 'code', 'email']
+    ordering = ['name']
+    
+    def get_queryset(self):
+        user = self.request.user
+        if not user.is_authenticated:
+            return School.objects.none()
+            
+        if user.role == 'site_admin':
+            return School.objects.all()
+        if user.school:
+            return School.objects.filter(id=user.school.id)
+        return School.objects.none()
+    
+    def get_permissions(self):
+        # Prevent school admins from creating or deleting schools
+        if self.action in ['create', 'destroy']:
+            return [IsSiteAdmin()]
+        return [permissions.IsAuthenticated()]
 
 
 # ============================================================================
@@ -238,7 +312,7 @@ class CurrentUserView(APIView):
         })
 
 
-class SessionViewSet(CacheMixin, viewsets.ModelViewSet):
+class SessionViewSet(SchoolScopedMixin, CacheMixin, viewsets.ModelViewSet):
     """ViewSet for sessions."""
     queryset = Session.objects.all()
     serializer_class = SessionSerializer
@@ -268,7 +342,7 @@ class SessionViewSet(CacheMixin, viewsets.ModelViewSet):
         invalidate_model_cache('session')
 
 
-class ClassViewSet(CacheMixin, viewsets.ModelViewSet):
+class ClassViewSet(SchoolScopedMixin, CacheMixin, viewsets.ModelViewSet):
     """ViewSet for classes."""
     queryset = Class.objects.prefetch_related('sections')
     serializer_class = ClassSerializer
@@ -343,6 +417,19 @@ class SectionViewSet(CacheMixin, viewsets.ModelViewSet):
     
     def get_queryset(self):
         queryset = Section.objects.select_related('class_ref')
+        user = self.request.user
+        if not user.is_authenticated:
+            return queryset.none()
+        
+        if user.role == 'site_admin':
+            school_id = self.request.query_params.get('school_id')
+            if school_id:
+                queryset = queryset.filter(class_ref__school_id=school_id)
+        elif user.school:
+             queryset = queryset.filter(class_ref__school=user.school)
+        else:
+             return queryset.none()
+             
         class_id = self.request.query_params.get('class_id')
         if class_id:
             queryset = queryset.filter(class_ref_id=class_id)
@@ -368,9 +455,9 @@ class SectionViewSet(CacheMixin, viewsets.ModelViewSet):
         invalidate_model_cache('class')
 
 
-class SubjectViewSet(CacheMixin, viewsets.ModelViewSet):
+class SubjectViewSet(SchoolScopedMixin, CacheMixin, viewsets.ModelViewSet):
     """ViewSet for subjects."""
-    queryset = Subject.objects.all()
+    queryset = Subject.objects.select_related('school')  # Optimize? Maybe not, context is enough
     serializer_class = SubjectSerializer
     filter_backends = [SearchFilter, OrderingFilter]
     search_fields = ['name', 'code']
@@ -397,7 +484,7 @@ class SubjectViewSet(CacheMixin, viewsets.ModelViewSet):
         invalidate_model_cache('subject')
 
 
-class CocurricularSubjectViewSet(CacheMixin, viewsets.ModelViewSet):
+class CocurricularSubjectViewSet(SchoolScopedMixin, CacheMixin, viewsets.ModelViewSet):
     """ViewSet for co-curricular subjects."""
     queryset = CocurricularSubject.objects.all()
     serializer_class = CocurricularSubjectSerializer
@@ -426,7 +513,7 @@ class CocurricularSubjectViewSet(CacheMixin, viewsets.ModelViewSet):
         invalidate_model_cache('cocurricularsubject')
 
 
-class OptionalSubjectViewSet(CacheMixin, viewsets.ModelViewSet):
+class OptionalSubjectViewSet(SchoolScopedMixin, CacheMixin, viewsets.ModelViewSet):
     """ViewSet for optional subjects."""
     queryset = OptionalSubject.objects.all()
     serializer_class = OptionalSubjectSerializer
@@ -464,6 +551,19 @@ class ClassSubjectAssignmentViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         queryset = ClassSubjectAssignment.objects.select_related('subject', 'class_ref')
+        user = self.request.user
+        if not user.is_authenticated:
+            return queryset.none()
+            
+        if user.role == 'site_admin':
+             school_id = self.request.query_params.get('school_id')
+             if school_id:
+                 queryset = queryset.filter(class_ref__school_id=school_id)
+        elif user.school:
+             queryset = queryset.filter(class_ref__school=user.school)
+        else:
+             return queryset.none()
+             
         class_id = self.request.query_params.get('class_id')
         if class_id:
             queryset = queryset.filter(class_ref_id=class_id)
@@ -530,6 +630,19 @@ class ClassOptionalConfigViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         queryset = ClassOptionalConfig.objects.select_related('class_ref')
+        user = self.request.user
+        if not user.is_authenticated:
+            return queryset.none()
+            
+        if user.role == 'site_admin':
+             school_id = self.request.query_params.get('school_id')
+             if school_id:
+                 queryset = queryset.filter(class_ref__school_id=school_id)
+        elif user.school:
+             queryset = queryset.filter(class_ref__school=user.school)
+        else:
+             return queryset.none()
+             
         class_id = self.request.query_params.get('class_id')
         if class_id:
             queryset = queryset.filter(class_ref_id=class_id)
@@ -561,8 +674,63 @@ class ClassOptionalAssignmentViewSet(viewsets.ModelViewSet):
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['class_ref', 'optional_subject']
     
+    @action(detail=False, methods=['post'], url_path='bulk-update')
+    def bulk_update(self, request):
+        """
+        Bulk update optional subject assignments for a class.
+        """
+        class_id = request.data.get('class_id')
+        optional_subject_ids = request.data.get('optional_subject_ids', [])
+        
+        if not class_id:
+            return Response({'error': 'class_id is required'}, status=status.HTTP_400_BAD_REQUEST)
+            
+        # Get current assignments
+        current_assignments = ClassOptionalAssignment.objects.filter(class_ref_id=class_id)
+        current_subject_ids = set(str(a.optional_subject_id) for a in current_assignments)
+        new_subject_ids = set(str(sid) for sid in optional_subject_ids)
+        
+        # Determine diffs
+        to_create = new_subject_ids - current_subject_ids
+        to_delete = current_subject_ids - new_subject_ids
+        
+        # Delete removed assignments
+        if to_delete:
+            ClassOptionalAssignment.objects.filter(
+                class_ref_id=class_id,
+                optional_subject_id__in=to_delete
+            ).delete()
+            
+        # Create new assignments
+        new_assignments = []
+        for subject_id in to_create:
+            new_assignments.append(ClassOptionalAssignment(
+                class_ref_id=class_id,
+                optional_subject_id=subject_id,
+                is_required=False,  # Optional subjects are usually not required
+                full_marks=50       # Default marks, can be updated later
+            ))
+            
+        if new_assignments:
+            ClassOptionalAssignment.objects.bulk_create(new_assignments)
+            
+        return Response({'status': 'success', 'message': 'Optional assignments updated successfully'})
+    
     def get_queryset(self):
         queryset = ClassOptionalAssignment.objects.select_related('class_ref', 'optional_subject')
+        user = self.request.user
+        if not user.is_authenticated:
+            return queryset.none()
+            
+        if user.role == 'site_admin':
+             school_id = self.request.query_params.get('school_id')
+             if school_id:
+                 queryset = queryset.filter(class_ref__school_id=school_id)
+        elif user.school:
+             queryset = queryset.filter(class_ref__school=user.school)
+        else:
+             return queryset.none()
+             
         class_id = self.request.query_params.get('class_id')
         if class_id:
             queryset = queryset.filter(class_ref_id=class_id)
@@ -598,6 +766,19 @@ class ClassCocurricularConfigViewSet(CacheMixin, viewsets.ModelViewSet):
     
     def get_queryset(self):
         queryset = ClassCocurricularConfig.objects.select_related('class_ref')
+        user = self.request.user
+        if not user.is_authenticated:
+             return queryset.none()
+             
+        if user.role == 'site_admin':
+             school_id = self.request.query_params.get('school_id')
+             if school_id:
+                 queryset = queryset.filter(class_ref__school_id=school_id)
+        elif user.school:
+             queryset = queryset.filter(class_ref__school=user.school)
+        else:
+             return queryset.none()
+             
         class_id = self.request.query_params.get('class_id')
         if class_id:
             queryset = queryset.filter(class_ref_id=class_id)
@@ -619,6 +800,19 @@ class ClassMarksDistributionViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         queryset = ClassMarksDistribution.objects.select_related('class_ref').order_by('created_at')
+        user = self.request.user
+        if not user.is_authenticated:
+             return queryset.none()
+             
+        if user.role == 'site_admin':
+             school_id = self.request.query_params.get('school_id')
+             if school_id:
+                 queryset = queryset.filter(class_ref__school_id=school_id)
+        elif user.school:
+             queryset = queryset.filter(class_ref__school=user.school)
+        else:
+             return queryset.none()
+             
         class_id = self.request.query_params.get('class_id')
         if class_id:
             queryset = queryset.filter(class_ref_id=class_id)
@@ -653,6 +847,19 @@ class SchoolConfigViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         queryset = SchoolConfig.objects.select_related('class_ref', 'session').order_by('created_at')
+        user = self.request.user
+        if not user.is_authenticated:
+            return queryset.none()
+            
+        if user.role == 'site_admin':
+             school_id = self.request.query_params.get('school_id')
+             if school_id:
+                 queryset = queryset.filter(class_ref__school_id=school_id)
+        elif user.school:
+             queryset = queryset.filter(class_ref__school=user.school)
+        else:
+             return queryset.none()
+             
         class_id = self.request.query_params.get('class_id')
         session_id = self.request.query_params.get('session_id')
         if class_id:
@@ -685,14 +892,14 @@ class SchoolConfigViewSet(viewsets.ModelViewSet):
         return Response(SchoolConfigSerializer(queryset, many=True).data)
 
 
-class StudentViewSet(viewsets.ModelViewSet):
+class StudentViewSet(SchoolScopedMixin, viewsets.ModelViewSet):
     """ViewSet for students."""
     queryset = Student.objects.all()
     serializer_class = StudentSerializer
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_fields = ['class_ref', 'section', 'session']
     search_fields = ['name', 'roll_no']
-    ordering_fields = ['roll_no', 'name', 'created_at']
+    ordering_fields = ['roll_no', 'roll_no_int', 'name', 'created_at']
     ordering = ['roll_no']
     
     def get_serializer_class(self):
@@ -703,7 +910,10 @@ class StudentViewSet(viewsets.ModelViewSet):
         return StudentSerializer
     
     def get_queryset(self):
-        queryset = Student.objects.select_related('class_ref', 'section', 'session')
+        from django.db.models import IntegerField
+        from django.db.models.functions import Cast
+        
+        queryset = super().get_queryset().select_related('class_ref', 'section', 'session')
         class_id = self.request.query_params.get('class_id')
         section_id = self.request.query_params.get('section_id')
         session_id = self.request.query_params.get('session_id')
@@ -714,6 +924,19 @@ class StudentViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(section_id=section_id)
         if session_id:
             queryset = queryset.filter(session_id=session_id)
+            
+        # Try to cast roll_no to integer for sorting
+        # This handles mixed alphanumeric gracefully depending on DB, but primarily for numeric roll nos
+        # If roll_no is not numeric, Cast might fail or behave unexpectedly depending on DB backend
+        # For safety in hybrid environments, we can stick to standard ordering OR use this if we strictly use numbers.
+        # Given "roll no field unique per class and add sorting by roll number" usually implies numeric sorting request.
+        try:
+            queryset = queryset.annotate(
+                roll_no_int=Cast('roll_no', output_field=IntegerField())
+            ).order_by('roll_no_int')
+        except Exception:
+             # Fallback to string ordering if cast fails (e.g. alphanumeric roll numbers)
+             pass
         
         return queryset
     
@@ -725,7 +948,7 @@ class StudentViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['post'], url_path='bulk')
     def bulk_create(self, request):
         """Bulk create students."""
-        serializer = BulkStudentCreateSerializer(data=request.data)
+        serializer = BulkStudentCreateSerializer(data=request.data, context={'request': request})
         serializer.is_valid(raise_exception=True)
         students = serializer.save()
         return Response(
@@ -734,7 +957,7 @@ class StudentViewSet(viewsets.ModelViewSet):
         )
 
 
-class TeacherViewSet(CacheMixin, viewsets.ModelViewSet):
+class TeacherViewSet(SchoolScopedMixin, CacheMixin, viewsets.ModelViewSet):
     """ViewSet for teachers."""
     queryset = Teacher.objects.select_related('user')
     serializer_class = TeacherSerializer
@@ -778,7 +1001,7 @@ class TeacherViewSet(CacheMixin, viewsets.ModelViewSet):
         })
 
 
-class AdminViewSet(viewsets.ModelViewSet):
+class AdminViewSet(SchoolScopedMixin, viewsets.ModelViewSet):
     """ViewSet for admins (read-only for safety)."""
     queryset = Admin.objects.select_related('user')
     serializer_class = AdminSerializer

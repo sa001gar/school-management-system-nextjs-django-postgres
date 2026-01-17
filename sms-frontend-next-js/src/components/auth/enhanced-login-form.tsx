@@ -84,7 +84,7 @@ export function EnhancedLoginForm({
     { status: "idle" as "idle" | "loading" | "success" | "error" },
     (current, newStatus: "idle" | "loading" | "success" | "error") => ({
       status: newStatus,
-    })
+    }),
   );
 
   // Transition for smooth navigation
@@ -120,7 +120,9 @@ export function EnhancedLoginForm({
       startNavigation(() => {
         setOptimisticState("success");
         // Use replace to prevent back button from returning to login page
-        router.replace(state.redirectTo || `/${role}`);
+        const targetRole =
+          state.user?.role === "site_admin" ? "site-admin" : role;
+        router.replace(state.redirectTo || `/${targetRole}`);
         router.refresh();
       });
     }
@@ -131,14 +133,14 @@ export function EnhancedLoginForm({
     (e: React.ChangeEvent<HTMLInputElement>) => {
       setFormState((prev) => ({ ...prev, email: e.target.value }));
     },
-    []
+    [],
   );
 
   const handlePasswordChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       setFormState((prev) => ({ ...prev, password: e.target.value }));
     },
-    []
+    [],
   );
 
   const getRoleIcon = () => {

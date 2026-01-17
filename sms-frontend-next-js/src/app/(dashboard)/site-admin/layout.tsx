@@ -1,25 +1,14 @@
-/**
- * Admin Dashboard Layout
- * With robust session validation and React 19 optimizations
- */
 "use client";
 
 import { useEffect, useState, useTransition, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
   LayoutDashboard,
-  Users,
-  UserCheck,
-  GraduationCap,
-  BookOpen,
-  DollarSign,
+  School,
   Settings,
-  Calendar,
   AlertCircle,
   RefreshCw,
-  Wifi,
   WifiOff,
-  School,
 } from "lucide-react";
 import { DashboardShell } from "@/components/layout/dashboard-shell";
 import { useAuthStore, useIsHydrated } from "@/stores/auth-store";
@@ -31,66 +20,23 @@ import {
 } from "@/lib/auth/session";
 import { clearSessionAction } from "@/lib/actions/auth";
 import { useConnectionStatus } from "@/lib/auth/hooks";
-import type { NavItem, NavGroup } from "@/components/layout/sidebar";
+import type { NavGroup } from "@/components/layout/sidebar";
 
-// Grouped navigation items for admin sidebar
-const adminNavGroups: NavGroup[] = [
+// Grouped navigation items for site admin sidebar
+const siteAdminNavGroups: NavGroup[] = [
   {
     title: "Overview",
     defaultOpen: true,
     items: [
       {
         title: "Dashboard",
-        href: "/admin",
+        href: "/site-admin",
         icon: LayoutDashboard,
       },
-    ],
-  },
-  {
-    title: "People Management",
-    defaultOpen: true,
-    items: [
       {
-        title: "Students",
-        href: "/admin/students",
-        icon: Users,
-      },
-      {
-        title: "Teachers",
-        href: "/admin/teachers",
-        icon: UserCheck,
-      },
-    ],
-  },
-  {
-    title: "Academics",
-    defaultOpen: true,
-    items: [
-      {
-        title: "Classes",
-        href: "/admin/classes",
-        icon: GraduationCap,
-      },
-      {
-        title: "Subjects",
-        href: "/admin/subjects",
-        icon: BookOpen,
-      },
-      {
-        title: "Sessions",
-        href: "/admin/sessions",
-        icon: Calendar,
-      },
-    ],
-  },
-  {
-    title: "Finance",
-    defaultOpen: false,
-    items: [
-      {
-        title: "Fee Management",
-        href: "/admin/fees",
-        icon: DollarSign,
+        title: "Schools",
+        href: "/site-admin", // For now, dashboard IS schools list
+        icon: School,
       },
     ],
   },
@@ -99,50 +45,34 @@ const adminNavGroups: NavGroup[] = [
     defaultOpen: false,
     items: [
       {
-        title: "School Config",
-        href: "/admin/school-config",
-        icon: School,
-      },
-      {
         title: "Settings",
-        href: "/admin/settings",
+        href: "/site-admin/settings",
         icon: Settings,
       },
     ],
   },
 ];
 
-// Premium loading component
-function AdminLayoutSkeleton() {
+// Loading Skeleton
+function SiteAdminLayoutSkeleton() {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50/50">
       <div className="relative flex items-center justify-center">
-        {/* Outer glowing ring */}
-        <div className="absolute -inset-4 bg-amber-500/10 rounded-full blur-xl animate-pulse" />
-
-        {/* Spinning border */}
-        <div className="w-16 h-16 rounded-full border-4 border-amber-100 border-t-amber-600 animate-spin" />
-
-        {/* Center Logo */}
+        <div className="absolute -inset-4 bg-purple-500/10 rounded-full blur-xl animate-pulse" />
+        <div className="w-16 h-16 rounded-full border-4 border-purple-100 border-t-purple-600 animate-spin" />
         <div className="absolute inset-0 flex items-center justify-center">
           <div className="bg-white p-2 rounded-full shadow-sm">
             <School
-              className="w-6 h-6 text-amber-600 animate-bounce"
+              className="w-6 h-6 text-purple-600 animate-bounce"
               style={{ animationDuration: "3s" }}
             />
           </div>
         </div>
       </div>
-
       <div className="mt-8 flex flex-col items-center gap-2">
         <h3 className="text-lg font-semibold text-gray-900">
-          School Management System
+          Site Administration
         </h3>
-        <div className="flex items-center gap-2">
-          <div className="w-2 h-2 bg-amber-600 rounded-full animate-bounce [animation-delay:-0.3s]" />
-          <div className="w-2 h-2 bg-amber-600 rounded-full animate-bounce [animation-delay:-0.15s]" />
-          <div className="w-2 h-2 bg-amber-600 rounded-full animate-bounce" />
-        </div>
         <p className="text-sm text-gray-500 font-medium">
           Verifying secure session...
         </p>
@@ -150,10 +80,6 @@ function AdminLayoutSkeleton() {
     </div>
   );
 }
-
-// Check imports to ensure School icon is available
-// existing imports: LayoutDashboard, Users, UserCheck, GraduationCap, etc.
-// Need to ensure 'School' is imported.
 
 // Session error component
 function SessionError({
@@ -200,7 +126,7 @@ function OfflineBanner() {
   );
 }
 
-export default function AdminLayout({
+export default function SiteAdminLayout({
   children,
 }: {
   children: React.ReactNode;
@@ -227,13 +153,11 @@ export default function AdminLayout({
     // Optimize: Check local session first (synchronous)
     const session = getSession();
     if (!session) {
-      router.replace("/login/admin");
+      router.replace("/login/admin"); // Use admin login for site admin
       return;
     }
 
     try {
-      // Run validation and health check in parallel, but don't block validation on health
-      // We prioritize validation result. If validation works, we're good.
       const [validationResult, healthResult] = await Promise.all([
         validateSession(),
         checkHealth(),
@@ -249,19 +173,16 @@ export default function AdminLayout({
         return;
       }
 
-      // Check role
-      if (validatedUser?.role !== "admin") {
-        setSessionError("You do not have admin access.");
-        clearTokens();
-        await clearSessionAction();
-
+      // Check role - MUST be site_admin
+      if (validatedUser?.role !== "site_admin") {
+        setSessionError("You do not have site admin access.");
         // Redirect to appropriate dashboard
-        if (validatedUser?.role === "teacher") {
+        if (validatedUser?.role === "admin") {
+          router.replace("/admin");
+        } else if (validatedUser?.role === "teacher") {
           router.replace("/teacher");
         } else if (validatedUser?.role === "student") {
           router.replace("/student");
-        } else {
-          router.replace("/login/admin");
         }
         return;
       }
@@ -274,45 +195,35 @@ export default function AdminLayout({
     }
   }, [router]);
 
-  // Initial validation - wait for hydration, then validate
+  // Initial validation
   useEffect(() => {
-    // Don't do anything until Zustand store is hydrated
     if (!isHydrated) return;
 
-    // Quick check of local state first
     if (!isAuthenticated) {
       router.push("/login/admin");
       return;
     }
 
-    if (user?.role !== "admin") {
-      // Redirect based on role
-      if (user?.role === "teacher") {
-        router.push("/teacher");
-      } else if (user?.role === "student") {
-        router.push("/student");
-      } else {
-        router.push("/login/admin");
-      }
+    // Role check from store
+    if (user?.role !== "site_admin") {
+      if (user?.role === "admin") router.push("/admin");
+      else if (user?.role === "teacher") router.push("/teacher");
+      else if (user?.role === "student") router.push("/student");
+      else router.push("/login/admin");
       return;
     }
 
-    // Validate session with backend
     startTransition(() => {
       validateUserSession();
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isHydrated, isAuthenticated, user?.role]);
+  }, [isHydrated, isAuthenticated, user?.role, router, validateUserSession]);
 
   // Periodic health check
   useEffect(() => {
     if (!isAuthorized) return;
-
     const interval = setInterval(async () => {
       const health = await checkHealth();
       setApiHealthy(health.api);
-
-      // If auth is unhealthy, revalidate session
       if (!health.auth && health.api) {
         const { valid } = await validateSession();
         if (!valid) {
@@ -321,24 +232,20 @@ export default function AdminLayout({
           router.push("/login/admin");
         }
       }
-    }, 60000); // Check every minute
-
+    }, 60000);
     return () => clearInterval(interval);
   }, [isAuthorized, router, logout]);
 
-  // Handle retry
   const handleRetry = () => {
     startTransition(() => {
       validateUserSession();
     });
   };
 
-  // Show loading state while hydrating or validating
   if (!isHydrated || isValidating || isPending) {
-    return <AdminLayoutSkeleton />;
+    return <SiteAdminLayoutSkeleton />;
   }
 
-  // Show error state
   if (sessionError) {
     return (
       <SessionError
@@ -349,23 +256,20 @@ export default function AdminLayout({
     );
   }
 
-  // Not authorized yet
   if (!isAuthorized) {
-    return <AdminLayoutSkeleton />;
+    return <SiteAdminLayoutSkeleton />;
   }
 
   return (
     <>
       {!isOnline && <OfflineBanner />}
-      <DashboardShell navGroups={adminNavGroups} role="admin">
-        {/* API Health indicator - only show when unhealthy */}
+      <DashboardShell navGroups={siteAdminNavGroups} role="admin">
+        {/* Reuse role="admin" for DashShell styles, or add site_admin support there? 
+            Admin style is purple which fits Site Admin. */}
         {!apiHealthy && (
           <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-center gap-2 text-amber-700 text-sm">
             <AlertCircle className="h-4 w-4 flex shrink-0" />
-            <span>
-              Server connection is unstable. Some features may not work
-              properly.
-            </span>
+            <span>Server connection is unstable.</span>
           </div>
         )}
         {children}

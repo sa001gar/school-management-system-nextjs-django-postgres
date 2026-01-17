@@ -23,6 +23,13 @@ class FeeStructure(models.Model):
         on_delete=models.CASCADE, 
         related_name='fee_structures'
     )
+    school = models.ForeignKey(
+        'core_services.School',
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='fee_structures'
+    )
     
     # Fee breakdown
     tuition_fee = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
@@ -70,6 +77,13 @@ class FeeDiscount(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=100)
     description = models.TextField(blank=True, null=True)
+    school = models.ForeignKey(
+        'core_services.School',
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='fee_discounts'
+    )
     
     DISCOUNT_TYPE_CHOICES = [
         ('percentage', 'Percentage'),
@@ -114,6 +128,13 @@ class StudentFee(models.Model):
     session = models.ForeignKey(
         'core_services.Session', 
         on_delete=models.CASCADE, 
+        related_name='student_fees'
+    )
+    school = models.ForeignKey(
+        'core_services.School',
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
         related_name='student_fees'
     )
     
@@ -210,6 +231,13 @@ class Payment(models.Model):
         on_delete=models.CASCADE, 
         related_name='payments'
     )
+    school = models.ForeignKey(
+        'core_services.School',
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='payments'
+    )
     
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     
@@ -285,6 +313,13 @@ class PaymentReminder(models.Model):
         StudentFee, 
         on_delete=models.CASCADE, 
         related_name='reminders'
+    )
+    school = models.ForeignKey(
+        'core_services.School',
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='payment_reminders'
     )
     
     reminder_date = models.DateField()

@@ -210,7 +210,13 @@ def get_cached_subjects():
 
 
 def invalidate_model_cache(model_name: str):
-    """Invalidate cache for a specific model."""
+    """
+    Invalidate cache for a specific model.
+    Handles both static keys (for helpers) and versioned keys (for ViewSets).
+    """
+    model_key = model_name.lower()
+    
+    # 1. Invalidate static keys (used by get_cached_* helpers)
     key_map = {
         'session': CACHE_KEYS['sessions_list'],
         'class': CACHE_KEYS['classes_list'],
@@ -220,6 +226,20 @@ def invalidate_model_cache(model_name: str):
         'optionalsubject': CACHE_KEYS['optional_subjects_list'],
         'teacher': CACHE_KEYS['teachers_list'],
     }
-    cache_key = key_map.get(model_name.lower())
+    cache_key = key_map.get(model_key)
     if cache_key:
         cache.delete(cache_key)
+        
+    # 2. Invalidate versioned keys (used by ViewSets with CacheMixin)
+    prefix_map = {
+        'session': 'sessions',
+        'class': 'classes',
+        'section': 'sections',
+        'subject': 'subjects',
+        'cocurricularsubject': 'cocurricular_subjects',
+        'optionalsubject': 'optional_subjects',
+        'teacher': 'teachers',
+    }
+    prefix = prefix_map.get(model_key)
+    if prefix:
+        invalidate_cache_prefix(prefix)

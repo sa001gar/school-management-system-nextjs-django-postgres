@@ -319,8 +319,11 @@ export async function logoutAction(): Promise<void> {
     }
   }
 
+  // Clear all auth cookies
   await clearAuthCookies();
-  redirect('/login');
+  
+  // Redirect to homepage
+  redirect('/');
 }
 
 // ============================================================================

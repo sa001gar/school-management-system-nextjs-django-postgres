@@ -14,18 +14,54 @@ from django.utils import timezone
 from django.core.exceptions import ValidationError
 
 
+class School(models.Model):
+    """School/Tenant in the multi-tenant SaaS system."""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    name = models.CharField(max_length=255)
+    code = models.CharField(max_length=50, unique=True, help_text="Short unique identifier for the school")
+    logo = models.ImageField(upload_to='school_logos/', null=True, blank=True)
+    address = models.TextField(blank=True)
+    city = models.CharField(max_length=100, blank=True)
+    state = models.CharField(max_length=100, blank=True)
+    pincode = models.CharField(max_length=20, blank=True)
+    email = models.EmailField(blank=True)
+    phone = models.CharField(max_length=20, blank=True)
+    alternate_phone = models.CharField(max_length=20, blank=True)
+    website = models.URLField(blank=True)
+    student_id_prefix = models.CharField(max_length=10, default='STU', help_text="Prefix for auto-generated student IDs")
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        db_table = 'schools'
+        ordering = ['name']
+        verbose_name = 'School'
+        verbose_name_plural = 'Schools'
+    
+    def __str__(self):
+        return f"{self.name} ({self.code})"
+
+
 class CustomUser(AbstractUser):
     """Extended User model for authentication."""
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     email = models.EmailField(unique=True)
     
-    # User role field
+    # User role field - 4 levels: site_admin, admin (school), teacher, student
     ROLE_CHOICES = [
-        ('admin', 'Admin'),
+        ('site_admin', 'Site Admin'),  # Super admin - manages all schools
+        ('admin', 'Admin'),  # School admin - manages one school
         ('teacher', 'Teacher'),
-        ('student', 'Student'),  # For student portal access
+        ('student', 'Student'),
     ]
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='teacher')
+    
+    # School association (null for site_admin)
+    school = models.ForeignKey(
+        School, on_delete=models.CASCADE, null=True, blank=True,
+        related_name='users', help_text="School this user belongs to (null for site_admin)"
+    )
     
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['username']
@@ -34,6 +70,10 @@ class CustomUser(AbstractUser):
         db_table = 'users'
         verbose_name = 'User'
         verbose_name_plural = 'Users'
+    
+    @property
+    def is_site_admin(self):
+        return self.role == 'site_admin'
     
     @property
     def is_admin(self):
@@ -48,13 +88,15 @@ class CustomUser(AbstractUser):
         return self.role == 'student'
     
     def __str__(self):
-        return f"{self.email} ({self.role})"
+        school_name = self.school.code if self.school else 'Site'
+        return f"{self.email} ({self.role}@{school_name})"
 
 
 class Admin(models.Model):
-    """Admin profile linked to user."""
+    """Admin profile linked to user. Each admin manages one school."""
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.OneToOneField(CustomUser, on_delete=models.CASCADE, related_name='admin_profile')
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name='admins', null=True, blank=True)
     name = models.CharField(max_length=255)
     created_at = models.DateTimeField(default=timezone.now)
     
@@ -68,13 +110,22 @@ class Admin(models.Model):
         return self.user.email
     
     def __str__(self):
-        return f"{self.name} ({self.email})"
+        school_code = self.school.code if self.school else 'No School'
+        return f"{self.name} ({self.email}) - {school_code}"
+    
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        # Sync school to user if set
+        if self.school and self.user.school != self.school:
+            self.user.school = self.school
+            self.user.save()
 
 
 class Teacher(models.Model):
-    """Teacher profile linked to user."""
+    """Teacher profile linked to user. Each teacher belongs to one school."""
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.OneToOneField(CustomUser, on_delete=models.CASCADE, related_name='teacher_profile')
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name='teachers', null=True, blank=True)
     name = models.CharField(max_length=255)
     created_at = models.DateTimeField(default=timezone.now)
     
@@ -88,12 +139,20 @@ class Teacher(models.Model):
         return self.user.email
     
     def __str__(self):
-        return f"{self.name} ({self.email})"
+        school_code = self.school.code if self.school else 'No School'
+        return f"{self.name} ({self.email}) - {school_code}"
+    
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        # Sync school to user if set
+        if self.school and self.user.school != self.school:
+            self.user.school = self.school
+            self.user.save()
 
 
 class Session(models.Model):
     """
-    Academic session/year.
+    Academic session/year per school.
     
     Session-Based Data Integrity:
     - Every academic and financial record is attached to a session
@@ -102,6 +161,7 @@ class Session(models.Model):
     - Historical data remains immutable
     """
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name='sessions', null=True, blank=True)
     name = models.CharField(max_length=100)
     start_date = models.DateField()
     end_date = models.DateField()
@@ -112,13 +172,14 @@ class Session(models.Model):
     class Meta:
         db_table = 'sessions'
         ordering = ['-start_date']
+        unique_together = ['school', 'name']  # Session name unique per school
         indexes = [
-            # Partial index for active sessions (most common query)
             models.Index(
                 fields=['is_active'],
                 name='idx_session_active',
                 condition=models.Q(is_active=True)
             ),
+            models.Index(fields=['school', 'is_active'], name='idx_session_school_active'),
         ]
     
     def clean(self):
@@ -132,12 +193,14 @@ class Session(models.Model):
         self.save()
     
     def __str__(self):
-        return self.name
+        school_code = self.school.code if self.school else 'Global'
+        return f"{school_code} - {self.name}"
 
 
 class Class(models.Model):
-    """School class/grade."""
+    """School class/grade per school."""
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name='classes', null=True, blank=True)
     name = models.CharField(max_length=100)
     level = models.IntegerField(default=0, help_text="Numeric level for ordering")
     created_at = models.DateTimeField(default=timezone.now)
@@ -147,9 +210,11 @@ class Class(models.Model):
         verbose_name = 'Class'
         verbose_name_plural = 'Classes'
         ordering = ['level']
+        unique_together = ['school', 'name']  # Class name unique per school
     
     def __str__(self):
-        return self.name
+        school_code = self.school.code if self.school else 'Global'
+        return f"{school_code} - {self.name}"
 
 
 class Section(models.Model):
@@ -171,47 +236,53 @@ class Section(models.Model):
 
 
 class Subject(models.Model):
-    """Academic subject."""
+    """Academic subject per school."""
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name='subjects', null=True, blank=True)
     name = models.CharField(max_length=100)
-    code = models.CharField(max_length=20, unique=True)
+    code = models.CharField(max_length=20)  # Unique per school, not globally
     full_marks = models.IntegerField(default=100)
     created_at = models.DateTimeField(default=timezone.now)
     
     class Meta:
         db_table = 'subjects'
         ordering = ['name']
+        unique_together = ['school', 'code']  # Subject code unique per school
     
     def __str__(self):
         return f"{self.name} ({self.code})"
 
 
 class CocurricularSubject(models.Model):
-    """Co-curricular activity subject."""
+    """Co-curricular activity subject per school."""
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name='cocurricular_subjects', null=True, blank=True)
     name = models.CharField(max_length=100)
-    code = models.CharField(max_length=20, unique=True)
+    code = models.CharField(max_length=20)  # Unique per school
     created_at = models.DateTimeField(default=timezone.now)
     
     class Meta:
         db_table = 'cocurricular_subjects'
         ordering = ['name']
+        unique_together = ['school', 'code']
     
     def __str__(self):
         return f"{self.name} ({self.code})"
 
 
 class OptionalSubject(models.Model):
-    """Optional subject."""
+    """Optional subject per school."""
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name='optional_subjects', null=True, blank=True)
     name = models.CharField(max_length=100)
-    code = models.CharField(max_length=20, unique=True)
+    code = models.CharField(max_length=20)  # Unique per school
     default_full_marks = models.IntegerField(default=50)
     created_at = models.DateTimeField(default=timezone.now)
     
     class Meta:
         db_table = 'optional_subjects'
         ordering = ['name']
+        unique_together = ['school', 'code']
     
     def __str__(self):
         return f"{self.name} ({self.code})"
@@ -335,14 +406,15 @@ class SchoolConfig(models.Model):
 
 class Student(models.Model):
     """
-    Permanent Student Identity.
+    Permanent Student Identity per school.
     
     The student identity never changes; only session enrollments evolve.
     This model stores the permanent student information.
     Session-specific data (class, section, roll number) is in StudentEnrollment.
     """
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    student_id = models.CharField(max_length=50, unique=True, help_text="Permanent unique student identifier")
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name='students', null=True, blank=True)
+    student_id = models.CharField(max_length=50, help_text="Permanent unique student identifier per school")
     
     # Personal Information (Permanent)
     name = models.CharField(max_length=255)
@@ -386,8 +458,9 @@ class Student(models.Model):
     class Meta:
         db_table = 'students'
         ordering = ['name']
+        unique_together = ['school', 'student_id']  # Student ID unique per school
         indexes = [
-            models.Index(fields=['student_id'], name='idx_stu_student_id'),
+            models.Index(fields=['school', 'student_id'], name='idx_stu_school_student_id'),
             models.Index(fields=['session', 'class_ref', 'section'], name='idx_stu_sess_cls_sec'),
             models.Index(fields=['class_ref', 'section'], name='idx_stu_cls_sec'),
             models.Index(fields=['name'], name='idx_stu_name'),
@@ -438,8 +511,12 @@ class Student(models.Model):
     def save(self, *args, **kwargs):
         # Auto-generate student_id if not provided
         if not self.student_id:
-            # Try to get school prefix from settings or use default
-            prefix = 'RKAV'  # This could be read from SchoolConfig
+            # Use school defined prefix if available, else school code, else 'STU'
+            if self.school and self.school.student_id_prefix:
+                prefix = self.school.student_id_prefix
+            else:
+                prefix = self.school.code if self.school else 'STU'
+            
             year = self.admission_session.start_date.year if self.admission_session else timezone.now().year
             self.student_id = self.generate_student_id(prefix=prefix, year=year)
         
@@ -673,3 +750,12 @@ class OptionalTeacherAssignment(models.Model):
     
     def __str__(self):
         return f"{self.teacher.name} - {self.optional_subject.name} ({self.class_ref.name} {self.section.name})"
+
+
+# Import dynamic marks distribution models
+from .models_marks import (
+    AssessmentCategory,
+    CoreSubjectMarksDistribution,
+    CocurricularMarksDistribution,
+    OptionalMarksDistribution
+)

@@ -68,6 +68,7 @@ export const useAuthStore = create<AuthState>()(
         set({ isLoading: true, error: null });
         try {
           const response = await authApi.login(email, password);
+          setTokens(response.access, response.refresh);
           set({
             user: response.user,
             teacher: response.teacher,
@@ -77,6 +78,9 @@ export const useAuthStore = create<AuthState>()(
             isLoading: false,
             error: null,
           });
+          
+          // Set role cookie
+          document.cookie = `user_role=${response.user.role}; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Lax`;
         } catch (error) {
           set({
             isLoading: false,
@@ -91,6 +95,7 @@ export const useAuthStore = create<AuthState>()(
         set({ isLoading: true, error: null });
         try {
           const response = await authApi.studentLogin(studentId, password);
+          setTokens(response.access, response.refresh);
           set({
             user: null,
             teacher: null,
@@ -100,6 +105,9 @@ export const useAuthStore = create<AuthState>()(
             isLoading: false,
             error: null,
           });
+          
+          // Set role cookie
+          document.cookie = `user_role=student; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Lax`;
         } catch (error) {
           set({
             isLoading: false,
@@ -234,3 +242,4 @@ export const useUserRole = () => useAuthStore((state) => {
   if (state.student) return 'student';
   return state.user?.role || null;
 });
+export const useIsSiteAdmin = () => useAuthStore((state) => state.user?.role === 'site_admin');

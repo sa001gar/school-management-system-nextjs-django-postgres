@@ -2,11 +2,19 @@
  * Auth Provider Component
  * Manages authentication state persistence and automatic token refresh
  */
-'use client';
+"use client";
 
-import { createContext, useContext, useEffect, useState, useCallback, useTransition, type ReactNode } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
-import { useAuthStore } from '@/stores/auth-store';
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  useCallback,
+  useTransition,
+  type ReactNode,
+} from "react";
+import { useRouter, usePathname } from "next/navigation";
+import { useAuthStore } from "@/stores/auth-store";
 import {
   getAccessToken,
   getSession,
@@ -18,8 +26,8 @@ import {
   checkHealth,
   type SessionData,
   type HealthStatus,
-} from '@/lib/auth/session';
-import type { User, UserRole } from '@/types';
+} from "@/lib/auth/session";
+import type { User, UserRole } from "@/types";
 
 // ============================================================================
 // Types
@@ -33,7 +41,7 @@ interface AuthContextValue {
   isValidating: boolean;
   error: string | null;
   health: HealthStatus | null;
-  
+
   // Actions
   login: (email: string, password: string, role: UserRole) => Promise<boolean>;
   logout: () => Promise<void>;
@@ -52,11 +60,14 @@ interface AuthProviderProps {
   onSessionExpired?: () => void;
 }
 
-export function AuthProvider({ children, onSessionExpired }: AuthProviderProps) {
+export function AuthProvider({
+  children,
+  onSessionExpired,
+}: AuthProviderProps) {
   const router = useRouter();
   const pathname = usePathname();
   const store = useAuthStore();
-  
+
   const [isLoading, setIsLoading] = useState(true);
   const [isValidating, setIsValidating] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -81,8 +92,14 @@ export function AuthProvider({ children, onSessionExpired }: AuthProviderProps) 
         if (valid && user) {
           // Update store
           store.setAuth(
-            { id: user.id, email: user.email, role: user.role, name: user.name } as User,
-            { access: token, refresh: '' }
+            {
+              id: user.id,
+              email: user.email,
+              role: user.role,
+              name: user.name,
+              school: user.school,
+            } as User,
+            { access: token, refresh: "" },
           );
         } else {
           // Session invalid, clear everything
@@ -91,7 +108,7 @@ export function AuthProvider({ children, onSessionExpired }: AuthProviderProps) 
         }
       } catch {
         // Session validation failed, but don't clear - might be network issue
-        setError('Session validation failed');
+        setError("Session validation failed");
       } finally {
         setIsLoading(false);
         setIsValidating(false);
@@ -109,10 +126,10 @@ export function AuthProvider({ children, onSessionExpired }: AuthProviderProps) 
       clearTokens();
       store.logout();
       onSessionExpired?.();
-      
+
       // Only redirect if not already on login page
-      if (!pathname.includes('/login')) {
-        router.push('/login');
+      if (!pathname.includes("/login")) {
+        router.push("/login");
       }
     };
 
@@ -139,43 +156,51 @@ export function AuthProvider({ children, onSessionExpired }: AuthProviderProps) 
   }, []);
 
   // Login handler
-  const login = useCallback(async (email: string, password: string, role: UserRole): Promise<boolean> => {
-    setError(null);
-    try {
-      if (role === 'student') {
-        await store.studentLogin(email, password);
-      } else {
-        await store.login(email, password);
-      }
+  const login = useCallback(
+    async (
+      email: string,
+      password: string,
+      role: UserRole,
+    ): Promise<boolean> => {
+      setError(null);
+      try {
+        if (role === "student") {
+          await store.studentLogin(email, password);
+        } else {
+          await store.login(email, password);
+        }
 
-      // Update session
-      const user = store.user;
-      if (user) {
-        setSession({
-          user: {
-            id: user.id,
-            email: user.email,
-            role: user.role,
-            name: user.name,
-          },
-          expiresAt: Date.now() + 60 * 60 * 1000,
-          lastValidated: Date.now(),
-        });
-      }
+        // Update session
+        const user = store.user;
+        if (user) {
+          setSession({
+            user: {
+              id: user.id,
+              email: user.email,
+              role: user.role,
+              name: user.name,
+              school: user.school,
+            },
+            expiresAt: Date.now() + 60 * 60 * 1000,
+            lastValidated: Date.now(),
+          });
+        }
 
-      return true;
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Login failed');
-      return false;
-    }
-  }, [store]);
+        return true;
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Login failed");
+        return false;
+      }
+    },
+    [store],
+  );
 
   // Logout handler
   const logout = useCallback(async () => {
     startTransition(async () => {
       await store.logout();
       clearTokens();
-      router.push('/login');
+      router.push("/login");
     });
   }, [store, router]);
 
@@ -186,8 +211,14 @@ export function AuthProvider({ children, onSessionExpired }: AuthProviderProps) 
       const { valid, user } = await validateSession();
       if (valid && user) {
         store.setAuth(
-          { id: user.id, email: user.email, role: user.role, name: user.name } as User,
-          { access: getAccessToken() || '', refresh: '' }
+          {
+            id: user.id,
+            email: user.email,
+            role: user.role,
+            name: user.name,
+            school: user.school,
+          } as User,
+          { access: getAccessToken() || "", refresh: "" },
         );
       }
     } finally {
@@ -224,7 +255,7 @@ export function AuthProvider({ children, onSessionExpired }: AuthProviderProps) 
 export function useAuthContext() {
   const context = useContext(AuthContext);
   if (!context) {
-    throw new Error('useAuthContext must be used within an AuthProvider');
+    throw new Error("useAuthContext must be used within an AuthProvider");
   }
   return context;
 }
@@ -244,7 +275,7 @@ export function ProtectedRoute({
   children,
   requiredRole,
   fallback,
-  redirectTo = '/login',
+  redirectTo = "/login",
 }: ProtectedRouteProps) {
   const router = useRouter();
   const { user, isAuthenticated, isLoading } = useAuthContext();
@@ -264,12 +295,12 @@ export function ProtectedRoute({
 
       if (!userRole || !roles.includes(userRole)) {
         // Redirect to appropriate dashboard
-        if (userRole === 'admin') {
-          router.push('/admin');
-        } else if (userRole === 'teacher') {
-          router.push('/teacher');
-        } else if (userRole === 'student') {
-          router.push('/student');
+        if (userRole === "admin") {
+          router.push("/admin");
+        } else if (userRole === "teacher") {
+          router.push("/teacher");
+        } else if (userRole === "student") {
+          router.push("/student");
         } else {
           router.push(redirectTo);
         }
@@ -322,11 +353,15 @@ export function SessionStatus({ showDetails = false }: SessionStatusProps) {
       <div className="flex items-center gap-2">
         <div
           className={`w-2 h-2 rounded-full ${
-            isAuthenticated ? 'bg-green-500' : 'bg-red-500'
+            isAuthenticated ? "bg-green-500" : "bg-red-500"
           }`}
         />
         <span className="text-xs text-gray-500">
-          {isValidating ? 'Validating...' : isAuthenticated ? 'Connected' : 'Disconnected'}
+          {isValidating
+            ? "Validating..."
+            : isAuthenticated
+              ? "Connected"
+              : "Disconnected"}
         </span>
       </div>
     );
@@ -336,8 +371,8 @@ export function SessionStatus({ showDetails = false }: SessionStatusProps) {
     <div className="p-3 bg-gray-50 rounded-lg text-xs space-y-1">
       <div className="flex justify-between">
         <span className="text-gray-500">Status:</span>
-        <span className={isAuthenticated ? 'text-green-600' : 'text-red-600'}>
-          {isAuthenticated ? 'Authenticated' : 'Not authenticated'}
+        <span className={isAuthenticated ? "text-green-600" : "text-red-600"}>
+          {isAuthenticated ? "Authenticated" : "Not authenticated"}
         </span>
       </div>
       {user && (
@@ -350,8 +385,8 @@ export function SessionStatus({ showDetails = false }: SessionStatusProps) {
         <>
           <div className="flex justify-between">
             <span className="text-gray-500">API:</span>
-            <span className={health.api ? 'text-green-600' : 'text-red-600'}>
-              {health.api ? 'Healthy' : 'Unhealthy'}
+            <span className={health.api ? "text-green-600" : "text-red-600"}>
+              {health.api ? "Healthy" : "Unhealthy"}
             </span>
           </div>
           <div className="flex justify-between">

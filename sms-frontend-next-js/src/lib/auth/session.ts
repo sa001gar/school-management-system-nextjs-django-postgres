@@ -18,8 +18,13 @@ export interface SessionData {
   user: {
     id: string;
     email: string;
-    role: 'admin' | 'teacher' | 'student';
+    role: 'site_admin' | 'admin' | 'teacher' | 'student';
     name?: string;
+    school?: {
+      id: string;
+      name: string;
+      code: string;
+    } | null;
   };
   expiresAt: number;
   lastValidated: number;
@@ -245,6 +250,7 @@ export async function validateSession(): Promise<{
       email: data.user.email,
       role: data.user.role,
       name: data.user.name,
+      school: data.user.school,
     };
 
     // Update session

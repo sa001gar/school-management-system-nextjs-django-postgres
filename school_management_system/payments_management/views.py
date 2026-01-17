@@ -18,10 +18,10 @@ from .serializers import (
     PaymentSerializer, PaymentCreateSerializer, PaymentDetailSerializer,
     PaymentReminderSerializer, PaymentReminderCreateSerializer
 )
-from core_services.views import IsAdminUser
+from core_services.views import IsAdminUser, SchoolScopedMixin
 
 
-class FeeStructureViewSet(viewsets.ModelViewSet):
+class FeeStructureViewSet(SchoolScopedMixin, viewsets.ModelViewSet):
     """ViewSet for fee structures."""
     queryset = FeeStructure.objects.all()
     serializer_class = FeeStructureSerializer
@@ -40,7 +40,7 @@ class FeeStructureViewSet(viewsets.ModelViewSet):
         return FeeStructureSerializer
     
     def get_queryset(self):
-        queryset = FeeStructure.objects.select_related('class_ref', 'session')
+        queryset = super().get_queryset().select_related('class_ref', 'session')
         class_id = self.request.query_params.get('class_id')
         session_id = self.request.query_params.get('session_id')
         
@@ -52,7 +52,7 @@ class FeeStructureViewSet(viewsets.ModelViewSet):
         return queryset
 
 
-class FeeDiscountViewSet(viewsets.ModelViewSet):
+class FeeDiscountViewSet(SchoolScopedMixin, viewsets.ModelViewSet):
     """ViewSet for fee discounts."""
     queryset = FeeDiscount.objects.all()
     serializer_class = FeeDiscountSerializer
@@ -64,7 +64,7 @@ class FeeDiscountViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAdminUser]
 
 
-class StudentFeeViewSet(viewsets.ModelViewSet):
+class StudentFeeViewSet(SchoolScopedMixin, viewsets.ModelViewSet):
     """ViewSet for student fees."""
     queryset = StudentFee.objects.all()
     serializer_class = StudentFeeSerializer
@@ -82,7 +82,7 @@ class StudentFeeViewSet(viewsets.ModelViewSet):
         return StudentFeeSerializer
     
     def get_queryset(self):
-        queryset = StudentFee.objects.select_related(
+        queryset = super().get_queryset().select_related(
             'student', 'student__class_ref', 'fee_structure', 'session', 'discount'
         )
         student_id = self.request.query_params.get('student_id')
@@ -170,7 +170,7 @@ class StudentFeeViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
 
-class PaymentViewSet(viewsets.ModelViewSet):
+class PaymentViewSet(SchoolScopedMixin, viewsets.ModelViewSet):
     """ViewSet for payments."""
     queryset = Payment.objects.all()
     serializer_class = PaymentSerializer
@@ -188,7 +188,7 @@ class PaymentViewSet(viewsets.ModelViewSet):
         return PaymentSerializer
     
     def get_queryset(self):
-        queryset = Payment.objects.select_related(
+        queryset = super().get_queryset().select_related(
             'student_fee__student', 'student_fee__fee_structure', 'student_fee__session', 'received_by'
         )
         student_fee_id = self.request.query_params.get('student_fee_id')
@@ -228,7 +228,7 @@ class PaymentViewSet(viewsets.ModelViewSet):
         })
 
 
-class PaymentReminderViewSet(viewsets.ModelViewSet):
+class PaymentReminderViewSet(SchoolScopedMixin, viewsets.ModelViewSet):
     """ViewSet for payment reminders."""
     queryset = PaymentReminder.objects.select_related(
         'student_fee__student', 'student_fee__fee_structure', 'student_fee__session'

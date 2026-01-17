@@ -24,7 +24,7 @@ from .serializers import (
     StudentOptionalResultSerializer, StudentOptionalResultCreateSerializer,
     StudentOptionalResultDetailSerializer, BulkStudentOptionalResultUpsertSerializer
 )
-from core_services.views import IsAdminUser
+from core_services.views import IsAdminUser, SchoolScopedMixin
 from core_services.models import Student, Subject
 from core_services.permissions import (
     IsAdminOrTeacher, SessionNotLocked, 
@@ -32,7 +32,7 @@ from core_services.permissions import (
 )
 
 
-class StudentResultViewSet(viewsets.ModelViewSet):
+class StudentResultViewSet(SchoolScopedMixin, viewsets.ModelViewSet):
     """
     ViewSet for student results.
     
@@ -57,7 +57,7 @@ class StudentResultViewSet(viewsets.ModelViewSet):
         return StudentResultSerializer
     
     def get_queryset(self):
-        queryset = StudentResult.objects.select_related(
+        queryset = super().get_queryset().select_related(
             'student', 'student__class_ref', 'student__section', 'subject', 'session'
         )
         student_id = self.request.query_params.get('student_id')
@@ -202,7 +202,7 @@ class StudentResultViewSet(viewsets.ModelViewSet):
         return Response(response_data)
 
 
-class StudentCocurricularResultViewSet(viewsets.ModelViewSet):
+class StudentCocurricularResultViewSet(SchoolScopedMixin, viewsets.ModelViewSet):
     """ViewSet for student co-curricular results."""
     queryset = StudentCocurricularResult.objects.all()
     serializer_class = StudentCocurricularResultSerializer
@@ -220,7 +220,7 @@ class StudentCocurricularResultViewSet(viewsets.ModelViewSet):
         return StudentCocurricularResultSerializer
     
     def get_queryset(self):
-        queryset = StudentCocurricularResult.objects.select_related(
+        queryset = super().get_queryset().select_related(
             'student', 'student__class_ref', 'student__section', 'cocurricular_subject', 'session'
         )
         student_id = self.request.query_params.get('student_id')
@@ -287,7 +287,7 @@ class StudentCocurricularResultViewSet(viewsets.ModelViewSet):
         )
 
 
-class StudentOptionalResultViewSet(viewsets.ModelViewSet):
+class StudentOptionalResultViewSet(SchoolScopedMixin, viewsets.ModelViewSet):
     """ViewSet for student optional results."""
     queryset = StudentOptionalResult.objects.all()
     serializer_class = StudentOptionalResultSerializer
@@ -305,7 +305,7 @@ class StudentOptionalResultViewSet(viewsets.ModelViewSet):
         return StudentOptionalResultSerializer
     
     def get_queryset(self):
-        queryset = StudentOptionalResult.objects.select_related(
+        queryset = super().get_queryset().select_related(
             'student', 'student__class_ref', 'student__section', 'optional_subject', 'session'
         )
         student_id = self.request.query_params.get('student_id')
@@ -385,6 +385,13 @@ class MarksheetView(viewsets.ViewSet):
             student = Student.objects.select_related(
                 'class_ref', 'section', 'session'
             ).get(id=student_id)
+            
+            # Authorization check
+            user = request.user
+            if user.role != 'site_admin' and hasattr(user, 'school') and user.school:
+                if student.school_id != user.school.id:
+                    return Response({'error': 'Unauthorized'}, status=status.HTTP_403_FORBIDDEN)
+                    
         except Student.DoesNotExist:
             return Response(
                 {'error': 'Student not found'},
@@ -475,12 +482,23 @@ class MarksheetView(viewsets.ViewSet):
                 {'error': 'session_id, class_id, and section_id are required'},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        
-        students = Student.objects.filter(
+            
+        # Class ownership check
+        user = request.user
+        if user.role != 'site_admin' and hasattr(user, 'school') and user.school:
+            # We can check class ownership by querying Class object or just filtering students by school
+            pass # The student filter below handles it if applied correctly, or we check School ID on Class
+            
+        students_query = Student.objects.filter(
             session_id=session_id,
             class_ref_id=class_id,
             section_id=section_id
-        ).select_related('class_ref', 'section', 'session').order_by('roll_no')
+        )
+        
+        if user.role != 'site_admin' and hasattr(user, 'school') and user.school:
+             students_query = students_query.filter(school=user.school)
+
+        students = students_query.select_related('class_ref', 'section', 'session').order_by('roll_no')
         
         student_ids = list(students.values_list('id', flat=True))
         

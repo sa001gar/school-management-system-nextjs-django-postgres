@@ -10,16 +10,28 @@ from .models import (
     Subject, CocurricularSubject, OptionalSubject, ClassSubjectAssignment,
     ClassOptionalConfig, ClassOptionalAssignment, ClassCocurricularConfig,
     ClassMarksDistribution, SchoolConfig, Student, TeacherAssignment,
-    StudentEnrollment, ClassTeacher, CocurricularTeacherAssignment, OptionalTeacherAssignment
+    StudentEnrollment, ClassTeacher, CocurricularTeacherAssignment, OptionalTeacherAssignment,
+    School
 )
+
+
+class SchoolSerializer(serializers.ModelSerializer):
+    """Serializer for School details."""
+    
+    class Meta:
+        model = School
+        fields = ['id', 'name', 'code', 'logo', 'address', 'city', 'state', 'pincode', 'email', 'phone', 'website', 'student_id_prefix']
+        read_only_fields = ['id', 'code']
 
 
 class UserSerializer(serializers.ModelSerializer):
     """Serializer for user basic information."""
     class Meta:
         model = CustomUser
-        fields = ['id', 'email', 'username', 'role', 'is_active']
-        read_only_fields = ['id', 'is_active']
+        fields = ['id', 'email', 'username', 'role', 'is_active', 'school']
+        read_only_fields = ['id', 'is_active', 'school']
+    
+    school = SchoolSerializer(read_only=True)
 
 
 class AdminSerializer(serializers.ModelSerializer):
@@ -54,11 +66,16 @@ class TeacherCreateSerializer(serializers.Serializer):
         return value
     
     def create(self, validated_data):
+        # Get school from request context
+        request = self.context.get('request')
+        school = request.user.school if request and hasattr(request.user, 'school') else None
+        
         user = CustomUser.objects.create_user(
             email=validated_data['email'],
             username=validated_data['email'],
             password=validated_data['password'],
-            role='teacher'
+            role='teacher',
+            school=school
         )
         teacher = Teacher.objects.create(
             user=user,
@@ -201,6 +218,18 @@ class ClassOptionalConfigSerializer(serializers.ModelSerializer):
         model = ClassOptionalConfig
         fields = ['id', 'class_id', 'has_optional', 'created_at']
         read_only_fields = ['id', 'created_at']
+    
+    def create(self, validated_data):
+        class_id = self.initial_data.get('class_id')
+        if class_id:
+            validated_data['class_ref'] = Class.objects.get(id=class_id)
+        return super().create(validated_data)
+    
+    def update(self, instance, validated_data):
+        class_id = self.initial_data.get('class_id')
+        if class_id:
+            validated_data['class_ref'] = Class.objects.get(id=class_id)
+        return super().update(instance, validated_data)
 
 
 class ClassOptionalAssignmentSerializer(serializers.ModelSerializer):
@@ -306,6 +335,7 @@ class StudentSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'student_id', 'created_at']
 
 
+
 class StudentCreateSerializer(serializers.ModelSerializer):
     """Serializer for creating students."""
     class_id = serializers.UUIDField(write_only=True, required=False, allow_null=True)
@@ -322,6 +352,36 @@ class StudentCreateSerializer(serializers.ModelSerializer):
             'class_id', 'section_id', 'session_id', 'password', 'is_active', 'created_at'
         ]
         read_only_fields = ['id', 'student_id', 'created_at']
+
+    def validate(self, data):
+        roll_no = data.get('roll_no')
+        class_id = data.get('class_id')
+        section_id = data.get('section_id')
+        session_id = data.get('session_id')
+
+        # Check for update case where fields might not be in data but on instance
+        if self.instance:
+            roll_no = roll_no or self.instance.roll_no
+            class_id = class_id or (self.instance.class_ref.id if self.instance.class_ref else None)
+            section_id = section_id or (self.instance.section.id if self.instance.section else None)
+            session_id = session_id or (self.instance.session.id if self.instance.session else None)
+
+        if roll_no and class_id and section_id and session_id:
+            queryset = Student.objects.filter(
+                class_ref_id=class_id,
+                section_id=section_id,
+                session_id=session_id,
+                roll_no=roll_no
+            )
+            if self.instance:
+                queryset = queryset.exclude(id=self.instance.id)
+            
+            if queryset.exists():
+                raise serializers.ValidationError({
+                    'roll_no': f'Student with roll number {roll_no} already exists in this class and section.'
+                })
+        
+        return data
     
     def create(self, validated_data):
         class_id = validated_data.pop('class_id', None)
@@ -388,6 +448,21 @@ class BulkStudentCreateSerializer(serializers.Serializer):
         if not students_data:
             return []
         
+        request = self.context.get('request')
+        user = request.user if request else None
+        school = user.school if user and hasattr(user, 'school') else None
+        
+        # Check for duplicates within the batch
+        batch_keys = set()
+        for i, student in enumerate(students_data):
+            # Key: session_id|class_id|section_id|roll_no
+            key = f"{student.get('session_id')}|{student.get('class_id')}|{student.get('section_id')}|{student.get('roll_no')}"
+            if key in batch_keys:
+                raise serializers.ValidationError(
+                    f"Duplicate student in batch at row {i+1}: Roll no {student.get('roll_no')} already exists in the list for this class."
+                )
+            batch_keys.add(key)
+
         # Collect all unique IDs to prefetch
         class_ids = set()
         section_ids = set()
@@ -406,21 +481,63 @@ class BulkStudentCreateSerializer(serializers.Serializer):
         sections_map = {s.id: s for s in Section.objects.filter(id__in=section_ids)} if section_ids else {}
         sessions_map = {s.id: s for s in Session.objects.filter(id__in=session_ids)} if session_ids else {}
         
+        # Check against DB for existing students
+        for student_data in students_data:
+            roll = student_data.get('roll_no')
+            c_id = student_data.get('class_id')
+            s_id = student_data.get('section_id')
+            sess_id = student_data.get('session_id')
+            
+            if roll and c_id and s_id and sess_id:
+                 if Student.objects.filter(
+                    class_ref_id=c_id, 
+                    section_id=s_id, 
+                    session_id=sess_id, 
+                    roll_no=roll).exists():
+                     raise serializers.ValidationError(
+                        f"Student with Roll no {roll} already exists in target class/section."
+                    )
+        
         # Prepare student objects for bulk creation
         student_objects = []
+        from django.utils import timezone
         
         for student_data in students_data:
             class_id = student_data.pop('class_id', None)
             section_id = student_data.pop('section_id', None)
             session_id = student_data.pop('session_id', None)
             
+            session = sessions_map.get(session_id) if session_id else None
+            
             student = Student(
                 roll_no=student_data.get('roll_no'),
                 name=student_data.get('name'),
+                date_of_birth=student_data.get('date_of_birth'),
+                father_name=student_data.get('father_name', ''),
+                mother_name=student_data.get('mother_name', ''),
+                guardian_name=student_data.get('guardian_name', ''),
+                phone=student_data.get('phone', ''),
                 class_ref=classes_map.get(class_id) if class_id else None,
                 section=sections_map.get(section_id) if section_id else None,
-                session=sessions_map.get(session_id) if session_id else None
+                session=session,
+                admission_session=session, # Set admission session
+                school=school
             )
+            
+            # Generate ID
+            # Use school defined prefix if available, else school code, else 'STU'
+            if school and school.student_id_prefix:
+                prefix = school.student_id_prefix
+            else:
+                prefix = school.code if school else 'STU'
+            
+            year = session.start_date.year if session else timezone.now().year
+            student.student_id = Student.generate_student_id(prefix=prefix, year=year)
+            
+            # Set default password if DOB available
+            if student.date_of_birth:
+                student.set_default_password()
+                
             student_objects.append(student)
         
         # Bulk create all students in a single query

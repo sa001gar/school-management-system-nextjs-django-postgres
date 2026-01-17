@@ -30,7 +30,8 @@ SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-*+_b8n*396-ht^
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get('DEBUG', 'True').lower() == 'true'
 
-ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
+# ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
+ALLOWED_HOSTS = ['*']
 
 
 # Application definition
@@ -135,8 +136,8 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
         'NAME': 'devdb',
-        'USER': 'smsadmin',
-        'PASSWORD': 'strongpassword',
+        'USER': 'postgres',
+        'PASSWORD': '9732055023',
         'HOST': 'localhost',
         'PORT': 5432,
         'CONN_MAX_AGE': 60,
@@ -280,19 +281,19 @@ SIMPLE_JWT = {
 }
 
 # CORS Configuration
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:5173",  # Vite dev server
-    "http://127.0.0.1:5173",
-    "http://localhost:3000",
-    "http://localhost:3001",
-    "http://localhost:3002",
-    "http://localhost:3003",
-    "http://127.0.0.1:3000",
-    "http://127.0.0.1:3001",
-    "http://127.0.0.1:3002",
-    "http://127.0.0.1:3003",
-]
-
+# CORS_ALLOWED_ORIGINS = [
+#     "http://localhost:5173",  # Vite dev server
+#     "http://127.0.0.1:5173",
+#     "http://localhost:3000",
+#     "http://localhost:3001",
+#     "http://localhost:3002",
+#     "http://localhost:3003",
+#     "http://127.0.0.1:3000",
+#     "http://127.0.0.1:3001",
+#     "http://127.0.0.1:3002",
+#     "http://127.0.0.1:3003",
+# ]
+CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
 
 CORS_ALLOW_HEADERS = [
@@ -409,6 +410,8 @@ CSRF_TRUSTED_ORIGINS = [
     'http://127.0.0.1:3001',
     'http://127.0.0.1:3002',
     'http://127.0.0.1:3003',
+    'https://fg6nk8mz-3000.inc1.devtunnels.ms',
+    'http://fg6nk8mz-3000.inc1.devtunnels.ms/'
 ]
 
 # Password hashing - use Argon2 (more secure than default PBKDF2)
