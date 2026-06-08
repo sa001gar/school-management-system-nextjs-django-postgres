@@ -2,7 +2,7 @@
 
 # dependencies
 /node_modules
-*.yaml
+
 
 # next.js
 /.next/
