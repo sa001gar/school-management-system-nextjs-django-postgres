@@ -1,41 +1,26 @@
-/**
- * Auth Store - Zustand
- * Manages authentication state with persistence
- */
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import type { User, Teacher, Admin, Student, UserRole } from '@/types';
-import { authApi } from '@/lib/api';
+import type { User, UserRole } from '@/types/auth';
+import { authApi } from '@/lib/api/auth';
 import { clearTokens, getAccessToken, setTokens } from '@/lib/api/client';
 
-// Session storage key prefix
-const STORAGE_KEY = 'sms-auth-storage';
-
 interface AuthState {
-  // State
   user: User | null;
-  teacher: Teacher | null;
-  admin: Admin | null;
-  student: Student | null;
+  teacher: { id: string; name: string; email: string } | null;
+  admin: { id: string; name: string; email: string } | null;
+  student: { id: string; name: string; student_id: string } | null;
   isAuthenticated: boolean;
   isLoading: boolean;
   isHydrated: boolean;
   error: string | null;
-  lastValidated: number | null;
-  
-  // Computed
   role: UserRole | null;
-  
-  // Actions
   login: (email: string, password: string) => Promise<void>;
   studentLogin: (studentId: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   fetchCurrentUser: () => Promise<void>;
   clearError: () => void;
-  setLoading: (loading: boolean) => void;
-  setAuth: (user: User, tokens: { access: string; refresh: string }) => void;
   setHydrated: () => void;
-  reset: () => void;
+  setAuth: (user: User, tokens: { access: string; refresh: string }) => void;
 }
 
 const initialState = {
@@ -47,23 +32,17 @@ const initialState = {
   isLoading: true,
   isHydrated: false,
   error: null,
-  lastValidated: null,
 };
 
 export const useAuthStore = create<AuthState>()(
   persist(
     (set, get) => ({
-      // Initial state
       ...initialState,
-      
-      // Computed role
-      get role() {
+      get role(): UserRole | null {
         const { user, student } = get();
         if (student) return 'student';
         return user?.role || null;
       },
-      
-      // Login action for admin/teacher
       login: async (email: string, password: string) => {
         set({ isLoading: true, error: null });
         try {
@@ -78,19 +57,12 @@ export const useAuthStore = create<AuthState>()(
             isLoading: false,
             error: null,
           });
-          
-          // Set role cookie
           document.cookie = `user_role=${response.user.role}; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Lax`;
         } catch (error) {
-          set({
-            isLoading: false,
-            error: error instanceof Error ? error.message : 'Login failed',
-          });
+          set({ isLoading: false, error: error instanceof Error ? error.message : 'Login failed' });
           throw error;
         }
       },
-      
-      // Student login action
       studentLogin: async (studentId: string, password: string) => {
         set({ isLoading: true, error: null });
         try {
@@ -105,45 +77,27 @@ export const useAuthStore = create<AuthState>()(
             isLoading: false,
             error: null,
           });
-          
-          // Set role cookie
-          document.cookie = `user_role=student; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Lax`;
+          document.cookie = 'user_role=student; path=/; max-age=604800; SameSite=Lax';
         } catch (error) {
-          set({
-            isLoading: false,
-            error: error instanceof Error ? error.message : 'Login failed',
-          });
+          set({ isLoading: false, error: error instanceof Error ? error.message : 'Login failed' });
           throw error;
         }
       },
-      
-      // Logout action
       logout: async () => {
         try {
           await authApi.logout();
         } catch {
-          // Ignore logout errors
+          // Ignore
         }
         clearTokens();
-        set({
-          user: null,
-          teacher: null,
-          admin: null,
-          student: null,
-          isAuthenticated: false,
-          isLoading: false,
-          error: null,
-        });
+        set({ user: null, teacher: null, admin: null, student: null, isAuthenticated: false, isLoading: false, error: null });
       },
-      
-      // Fetch current user
       fetchCurrentUser: async () => {
         const token = getAccessToken();
         if (!token) {
           set({ isLoading: false, isAuthenticated: false });
           return;
         }
-        
         set({ isLoading: true });
         try {
           const response = await authApi.getCurrentUser();
@@ -153,65 +107,33 @@ export const useAuthStore = create<AuthState>()(
             admin: response.admin,
             isAuthenticated: true,
             isLoading: false,
-            lastValidated: Date.now(),
           });
         } catch {
           clearTokens();
-          set({
-            user: null,
-            teacher: null,
-            admin: null,
-            student: null,
-            isAuthenticated: false,
-            isLoading: false,
-            lastValidated: null,
-          });
+          set({ user: null, teacher: null, admin: null, student: null, isAuthenticated: false, isLoading: false });
         }
       },
-      
-      // Clear error
       clearError: () => set({ error: null }),
-      
-      // Set loading
-      setLoading: (loading: boolean) => set({ isLoading: loading }),
-
-      // Set auth from server action
+      setHydrated: () => set({ isHydrated: true, isLoading: false }),
       setAuth: (user: User, tokens: { access: string; refresh: string }) => {
         setTokens(tokens.access, tokens.refresh);
         set({
           user,
-          teacher: user.role === 'teacher' ? user as any : null,
-          admin: user.role === 'admin' ? user as any : null,
-          student: user.role === 'student' ? user as any : null,
+          teacher: user.role === 'teacher' ? { id: user.id, name: user.name || '', email: user.email } : null,
+          admin: user.role === 'admin' ? { id: user.id, name: user.name || '', email: user.email } : null,
+          student: null,
           isAuthenticated: true,
           isLoading: false,
           isHydrated: true,
           error: null,
-          lastValidated: Date.now(),
         });
-      },
-      
-      // Set hydrated (called when store is rehydrated from storage)
-      setHydrated: () => set({ isHydrated: true, isLoading: false }),
-      
-      // Reset store to initial state
-      reset: () => {
-        clearTokens();
-        set(initialState);
       },
     }),
     {
-      name: STORAGE_KEY,
+      name: 'rms-auth-storage',
       storage: createJSONStorage(() => {
-        if (typeof window !== 'undefined') {
-          return localStorage;
-        }
-        // Return a no-op storage for SSR
-        return {
-          getItem: () => null,
-          setItem: () => {},
-          removeItem: () => {},
-        };
+        if (typeof window !== 'undefined') return localStorage;
+        return { getItem: () => null, setItem: () => {}, removeItem: () => {} };
       }),
       partialize: (state) => ({
         user: state.user,
@@ -219,27 +141,22 @@ export const useAuthStore = create<AuthState>()(
         admin: state.admin,
         student: state.student,
         isAuthenticated: state.isAuthenticated,
-        lastValidated: state.lastValidated,
       }),
       onRehydrateStorage: () => (state) => {
-        if (state) {
-          state.setHydrated();
-        }
+        if (state) state.setHydrated();
       },
     }
   )
 );
 
-// Selector hooks for convenience
-export const useUser = () => useAuthStore((state) => state.user);
-export const useTeacher = () => useAuthStore((state) => state.teacher);
-export const useAdmin = () => useAuthStore((state) => state.admin);
-export const useStudent = () => useAuthStore((state) => state.student);
-export const useIsAuthenticated = () => useAuthStore((state) => state.isAuthenticated);
-export const useIsHydrated = () => useAuthStore((state) => state.isHydrated);
-export const useAuthLoading = () => useAuthStore((state) => state.isLoading);
-export const useUserRole = () => useAuthStore((state) => {
-  if (state.student) return 'student';
-  return state.user?.role || null;
-});
-export const useIsSiteAdmin = () => useAuthStore((state) => state.user?.role === 'site_admin');
+export const useUser = () => useAuthStore((s) => s.user);
+export const useTeacher = () => useAuthStore((s) => s.teacher);
+export const useAdmin = () => useAuthStore((s) => s.admin);
+export const useStudent = () => useAuthStore((s) => s.student);
+export const useIsAuthenticated = () => useAuthStore((s) => s.isAuthenticated);
+export const useIsHydrated = () => useAuthStore((s) => s.isHydrated);
+export const useUserRole = () =>
+  useAuthStore((s) => {
+    if (s.student) return 'student';
+    return s.user?.role || null;
+  });

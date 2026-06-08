@@ -1,46 +1,12 @@
-/**
- * API Module Exports
- */
-
-// Client
-export { default as api, API_BASE_URL, getAccessToken, getRefreshToken, setTokens, clearTokens, isTokenExpired } from './client';
-
-// Auth
-export { authApi, teacherApi, AuthError } from './auth';
-
-// Core
-export {
-  sessionsApi,
-  classesApi,
-  sectionsApi,
-  subjectsApi,
-  cocurricularSubjectsApi,
-  optionalSubjectsApi,
-  classSubjectAssignmentsApi,
-  classOptionalConfigApi,
-  classOptionalAssignmentsApi,
-  classCocurricularConfigApi,
-  classMarksDistributionApi,
-  schoolConfigApi,
-  studentsApi,
-  studentEnrollmentsApi,
-  teacherAssignmentsApi,
-  classTeachersApi,
-} from './core';
-
-// Results
-export {
-  studentResultsApi,
-  cocurricularResultsApi,
-  optionalResultsApi,
-  marksheetApi,
-} from './results';
-
-// Payments
-export {
-  feeStructuresApi,
-  feeDiscountsApi,
-  studentFeesApi,
-  paymentsApi,
-  paymentRemindersApi,
-} from './payments';
+export { default as api } from './client';
+export { getAccessToken, getRefreshToken, setTokens, clearTokens, isTokenExpired } from './client';
+export { authApi, AuthError } from './auth';
+export { sessionsApi } from './sessions';
+export { classesApi } from './classes';
+export { subjectsApi } from './subjects';
+export { studentsApi } from './students';
+export { teachersApi } from './teachers';
+export { assessmentsApi } from './assessments';
+export { marksApi } from './marks';
+export { resultsApi } from './results';
+export { reportsApi } from './reports';

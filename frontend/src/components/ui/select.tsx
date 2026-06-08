@@ -1,7 +1,3 @@
-/**
- * Select Component
- * Reusable select dropdown
- */
 import * as React from "react";
 import { cn } from "@/lib/utils";
 import { ChevronDown } from "lucide-react";
@@ -12,8 +8,7 @@ export interface SelectOption {
   disabled?: boolean;
 }
 
-export interface SelectProps
-  extends Omit<React.SelectHTMLAttributes<HTMLSelectElement>, "children"> {
+export interface SelectProps extends Omit<React.SelectHTMLAttributes<HTMLSelectElement>, "children"> {
   label?: React.ReactNode;
   error?: string;
   options: SelectOption[];
@@ -23,14 +18,10 @@ export interface SelectProps
 const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
   ({ className, label, error, options, placeholder, ...props }, ref) => {
     const id = React.useId();
-
     return (
       <div className="w-full">
         {label && (
-          <label
-            htmlFor={id}
-            className="block text-sm font-medium text-gray-700 mb-1.5"
-          >
+          <label htmlFor={id} className="block text-sm font-medium text-gray-700 mb-1.5">
             {label}
           </label>
         )}
@@ -39,25 +30,17 @@ const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
             id={id}
             className={cn(
               "flex h-10 w-full appearance-none rounded-lg border border-gray-300 bg-white px-3 py-2 pr-10 text-sm",
-              "focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500",
-              "disabled:cursor-not-allowed disabled:opacity-50 disabled:bg-gray-50",
+              "focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500",
+              "disabled:cursor-not-allowed disabled:opacity-50",
               error && "border-red-500 focus:ring-red-500 focus:border-red-500",
               className
             )}
             ref={ref}
             {...props}
           >
-            {placeholder && (
-              <option value="" disabled>
-                {placeholder}
-              </option>
-            )}
+            {placeholder && <option value="" disabled>{placeholder}</option>}
             {options.map((option) => (
-              <option
-                key={option.value}
-                value={option.value}
-                disabled={option.disabled}
-              >
+              <option key={option.value} value={option.value} disabled={option.disabled}>
                 {option.label}
               </option>
             ))}

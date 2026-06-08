@@ -1,13 +1,20 @@
-/**
- * Teacher - Marks Entry Page
- */
-import { MarksEntry } from '@/components/teacher/marks-entry';
+'use client';
 
-export const metadata = {
-  title: 'Marks Entry - Teacher Dashboard',
-  description: 'Enter and manage student marks',
-};
+import { PageHeader } from '@/components/layout/page-header';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
-export default function MarksEntryPage() {
-  return <MarksEntry />;
+export default function TeacherMarksPage() {
+  return (
+    <div className="space-y-6">
+      <PageHeader title="Marks Entry" description="Enter student marks for your assigned subjects" />
+      <Card>
+        <CardHeader>
+          <CardTitle>Marks Entry Form</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-gray-500">Select a class, section, and subject to enter marks.</p>
+        </CardContent>
+      </Card>
+    </div>
+  );
 }

@@ -1,45 +1,28 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-// Define protected routes and their allowed roles
 const protectedRoutes: Record<string, string[]> = {
-  '/site-admin': ['site_admin'],
-  '/admin': ['admin', 'site_admin'], // Site admin can access school admin areas
-  '/teacher': ['admin', 'teacher', 'site_admin'],
+  '/admin': ['admin'],
+  '/teacher': ['admin', 'teacher'],
   '/student': ['student'],
-  '/dashboard': ['admin', 'teacher', 'site_admin'],
 };
 
-// Public routes that don't require authentication
 const publicRoutes = [
   '/login',
   '/login/admin',
-  '/login/teacher', 
+  '/login/teacher',
   '/login/student',
-  '/student-login',
   '/',
-  '/forgot-password',
 ];
 
-// Static asset patterns to skip
-const staticPatterns = [
-  '/_next',
-  '/api',
-  '/favicon.ico',
-  '/manifest.json',
-  '/robots.txt',
-];
+const staticPatterns = ['/_next', '/api', '/favicon.ico', '/manifest.json', '/robots.txt'];
 
-/**
- * Parse JWT to check expiration
- */
 function isTokenExpired(token: string): boolean {
   try {
     const base64Url = token.split('.')[1];
     const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
     const payload = JSON.parse(atob(base64));
-    // Add 60 second buffer
-    return Date.now() >= (payload.exp * 1000) - 60000;
+    return Date.now() >= payload.exp * 1000 - 60000;
   } catch {
     return true;
   }
@@ -47,111 +30,60 @@ function isTokenExpired(token: string): boolean {
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  
-  // Skip static files and API routes
-  if (staticPatterns.some(pattern => pathname.startsWith(pattern))) {
+
+  if (staticPatterns.some((p) => pathname.startsWith(p))) {
     return NextResponse.next();
   }
-  
-  // Get auth cookies
-  const userRole = request.cookies.get('user_role')?.value;
+
   const accessToken = request.cookies.get('access_token')?.value;
-  
-  // Check token validity
+  const userRole = request.cookies.get('user_role')?.value;
   const hasValidToken = accessToken && !isTokenExpired(accessToken);
-  
-  // Check if it's a public route
-  const isPublicRoute = publicRoutes.some(route => 
-    pathname === route || pathname.startsWith(route + '/')
-  );
-  
-  // Check if it's a protected route (known route)
-  const isProtectedRoute = Object.keys(protectedRoutes).some(route =>
-    pathname === route || pathname.startsWith(route + '/')
-  );
-  
-  // If user is authenticated and trying to access login pages, redirect to dashboard
+
+  const isPublicRoute = publicRoutes.some((r) => pathname === r || pathname.startsWith(r + '/'));
+  const isProtectedRoute = Object.keys(protectedRoutes).some((r) => pathname === r || pathname.startsWith(r + '/'));
+
   if (hasValidToken && pathname.includes('/login')) {
-    if (userRole === 'site_admin') {
-      return NextResponse.redirect(new URL('/site-admin', request.url));
-    } else if (userRole === 'admin') {
-      return NextResponse.redirect(new URL('/admin', request.url));
-    } else if (userRole === 'teacher') {
-      return NextResponse.redirect(new URL('/teacher', request.url));
-    } else if (userRole === 'student') {
-      return NextResponse.redirect(new URL('/student', request.url));
-    }
-    return NextResponse.redirect(new URL('/dashboard', request.url));
+    if (userRole === 'admin') return NextResponse.redirect(new URL('/admin', request.url));
+    if (userRole === 'teacher') return NextResponse.redirect(new URL('/teacher', request.url));
+    if (userRole === 'student') return NextResponse.redirect(new URL('/student', request.url));
+    return NextResponse.redirect(new URL('/login', request.url));
   }
-  
-  // If it's a public route, allow access
-  if (isPublicRoute) {
-    return NextResponse.next();
-  }
-  
-  // If it's NOT a known protected route, allow access (let Next.js handle 404)
-  // This prevents redirect loops on unknown/404 pages
-  if (!isProtectedRoute) {
-    return NextResponse.next();
-  }
-  
-  // If no valid access token and trying to access protected route, redirect to login
+
+  if (isPublicRoute) return NextResponse.next();
+
+  if (!isProtectedRoute) return NextResponse.next();
+
   if (!hasValidToken) {
-    // Preserve the original URL for redirect after login
     const loginUrl = new URL('/login', request.url);
     loginUrl.searchParams.set('callbackUrl', pathname);
-    
     const response = NextResponse.redirect(loginUrl);
-    
-    // Clear invalid cookies if token is expired
     if (accessToken && isTokenExpired(accessToken)) {
       response.cookies.delete('access_token');
       response.cookies.delete('refresh_token');
       response.cookies.delete('user_role');
     }
-    
     return response;
   }
-  
-  // Check role-based access
+
   for (const [route, allowedRoles] of Object.entries(protectedRoutes)) {
     if (pathname.startsWith(route)) {
       if (!userRole || !allowedRoles.includes(userRole)) {
-        // User doesn't have permission, redirect to appropriate dashboard
-        if (userRole === 'site_admin') {
-          return NextResponse.redirect(new URL('/site-admin', request.url));
-        } else if (userRole === 'admin') {
-          return NextResponse.redirect(new URL('/admin', request.url));
-        } else if (userRole === 'teacher') {
-          return NextResponse.redirect(new URL('/teacher', request.url));
-        } else if (userRole === 'student') {
-          return NextResponse.redirect(new URL('/student', request.url));
-        }
+        if (userRole === 'admin') return NextResponse.redirect(new URL('/admin', request.url));
+        if (userRole === 'teacher') return NextResponse.redirect(new URL('/teacher', request.url));
+        if (userRole === 'student') return NextResponse.redirect(new URL('/student', request.url));
         return NextResponse.redirect(new URL('/login', request.url));
       }
       break;
     }
   }
-  
-  // Add security headers
+
   const response = NextResponse.next();
   response.headers.set('X-Content-Type-Options', 'nosniff');
   response.headers.set('X-Frame-Options', 'DENY');
   response.headers.set('X-XSS-Protection', '1; mode=block');
-  
   return response;
 }
 
 export const config = {
-  matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - api (API routes)
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - public files
-     */
-    '/((?!api|_next/static|_next/image|favicon.ico|.*\\..*|_next).*)',
-  ],
+  matcher: ['/((?!api|_next/static|_next/image|favicon.ico|.*\\..*|_next).*)'],
 };

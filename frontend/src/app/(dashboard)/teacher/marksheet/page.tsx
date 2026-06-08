@@ -1,13 +1,20 @@
-/**
- * Teacher - Marksheet Generation Page
- */
-import { MarksheetGeneration } from '@/components/teacher/marksheet-generation';
+'use client';
 
-export const metadata = {
-  title: 'Generate Marksheet - Teacher Dashboard',
-  description: 'Generate and print student marksheets',
-};
+import { PageHeader } from '@/components/layout/page-header';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
-export default function MarksheetPage() {
-  return <MarksheetGeneration />;
+export default function TeacherMarksheetPage() {
+  return (
+    <div className="space-y-6">
+      <PageHeader title="Marksheet" description="Generate and view class marksheets" />
+      <Card>
+        <CardHeader>
+          <CardTitle>Marksheet Generator</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-gray-500">Select a class and section to generate marksheets.</p>
+        </CardContent>
+      </Card>
+    </div>
+  );
 }
