@@ -45,7 +45,7 @@ function isTokenExpired(token: string): boolean {
   }
 }
 
-export function proxy(request: NextRequest) {
+export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   
   // Skip static files and API routes

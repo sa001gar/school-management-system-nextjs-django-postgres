@@ -5,9 +5,9 @@
 
 import { API_BASE_URL } from '../api/client';
 
-// Constants
-export const ACCESS_TOKEN_KEY = 'sms_access_token';
-export const REFRESH_TOKEN_KEY = 'sms_refresh_token';
+// Constants - aligned with client.ts localStorage keys
+export const ACCESS_TOKEN_KEY = 'access_token';
+export const REFRESH_TOKEN_KEY = 'refresh_token';
 export const SESSION_KEY = 'sms_session';
 export const TOKEN_REFRESH_MARGIN = 60 * 1000; // Refresh 1 minute before expiry
 
