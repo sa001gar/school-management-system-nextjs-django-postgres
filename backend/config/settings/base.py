@@ -36,6 +36,8 @@ INSTALLED_APPS = [
     "enrollments",
     "results",
     "reporting",
+    "analytics",
+    "student",
 ]
 
 MIDDLEWARE = [

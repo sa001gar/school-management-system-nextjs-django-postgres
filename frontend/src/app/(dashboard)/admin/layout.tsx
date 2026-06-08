@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore, useIsHydrated } from '@/stores/auth-store';
-import { validateSession, clearTokens } from '@/lib/auth/session';
+import { clearTokens } from '@/lib/api/client';
 import { Sidebar } from '@/components/layout/sidebar';
 import { Header } from '@/components/layout/header';
 import { Loading } from '@/components/ui/loading';
@@ -16,6 +16,11 @@ import {
   Calendar,
   FileText,
   Award,
+  ClipboardList,
+  TrendingUp,
+  BarChart3,
+  Shield,
+  UserPlus,
 } from 'lucide-react';
 
 const navItems = [
@@ -25,9 +30,14 @@ const navItems = [
   { title: 'Subjects', href: '/admin/subjects', icon: BookOpen },
   { title: 'Teachers', href: '/admin/teachers', icon: UserCheck },
   { title: 'Students', href: '/admin/students', icon: Users },
+  { title: 'Enrollments', href: '/admin/enrollments', icon: ClipboardList },
   { title: 'Assessments', href: '/admin/assessments', icon: FileText },
   { title: 'Grading', href: '/admin/grading', icon: Award },
-  { title: 'Assignments', href: '/admin/assignments', icon: UserCheck },
+  { title: 'Assignments', href: '/admin/assignments', icon: UserPlus },
+  { title: 'Publications', href: '/admin/publications', icon: TrendingUp },
+  { title: 'Analytics', href: '/admin/analytics', icon: BarChart3 },
+  { title: 'Users', href: '/admin/users', icon: Shield },
+  { title: 'Audit Logs', href: '/admin/audit', icon: FileText },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -42,17 +52,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       router.push('/login/admin');
       return;
     }
-    const validate = async () => {
-      const { valid } = await validateSession();
-      if (!valid) {
-        clearTokens();
-        logout();
-        router.push('/login/admin');
-        return;
-      }
-      setIsValidating(false);
-    };
-    validate();
+    setIsValidating(false);
   }, [isHydrated, isAuthenticated, user?.role]);
 
   if (!isHydrated || isValidating) return <Loading message="Verifying session..." />;

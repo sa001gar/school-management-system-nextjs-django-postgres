@@ -81,3 +81,50 @@ class RankingService(BaseService):
             count=len(rankings),
         )
         return rankings
+
+    def get_student_rank(
+        self,
+        student_id: UUID,
+        session_id: UUID,
+    ) -> dict:
+        """Get a specific student's rank, percentage, and grade within their current class."""
+        from enrollments.models import Enrollment
+        from academics.models import GradePolicy
+        from academics.services.grading_service import GradingService
+
+        enrollment = Enrollment.objects.filter(
+            student_id=student_id,
+            session_id=session_id,
+            is_active=True,
+        ).select_related("class_field", "section").first()
+
+        if not enrollment:
+            return {"percentage": None, "grade": None, "rank": None, "total_students": None}
+
+        # Get rankings for this student's class/section
+        rankings = self.compute_class_rankings(
+            class_id=enrollment.class_field_id,
+            section_id=enrollment.section_id,
+            session_id=session_id,
+        )
+
+        # Find this student's ranking
+        student_ranking = None
+        for r in rankings:
+            if r["enrollment_id"] == str(enrollment.id):
+                student_ranking = r
+                break
+
+        if not student_ranking:
+            return {"percentage": None, "grade": None, "rank": None, "total_students": len(rankings)}
+
+        # Determine grade from percentage using GradingService
+        grading_svc = GradingService()
+        grade, _ = grading_svc.calculate_grade(student_ranking["percentage"])
+
+        return {
+            "percentage": student_ranking["percentage"],
+            "grade": grade,
+            "rank": student_ranking["rank"],
+            "total_students": len(rankings),
+        }

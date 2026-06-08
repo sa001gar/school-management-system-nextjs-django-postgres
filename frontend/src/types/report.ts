@@ -2,6 +2,7 @@ export interface ReportCard {
   student: { id: string; name: string; roll_no: string; class: string; section: string };
   results: Array<{
     subject_name: string;
+    assessment_type?: string;
     marks_obtained: number;
     full_marks: number;
     grade: string;
@@ -20,6 +21,7 @@ export interface Marksheet {
   student: { id: string; name: string; roll_no: string; class: string; section: string };
   results: Array<{
     subject_name: string;
+    assessment_type?: string;
     marks_obtained: number;
     full_marks: number;
     grade: string;

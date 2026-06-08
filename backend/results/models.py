@@ -88,3 +88,69 @@ class SubjectResult(BaseModel):
             f"{self.enrollment.student.name} - {self.subject.code}: "
             f"{self.total_obtained}/{self.total_full} ({self.grade})"
         )
+
+
+class ResultPublication(BaseModel):
+    """Tracks result publication status for a class in a session."""
+
+    STATUS_CHOICES = [
+        ("draft", "Draft"),
+        ("under_review", "Under Review"),
+        ("published", "Published"),
+        ("unpublished", "Unpublished"),
+    ]
+
+    session = models.ForeignKey(
+        "academics.AcademicSession",
+        on_delete=models.CASCADE,
+        related_name="result_publications",
+    )
+    class_field = models.ForeignKey(
+        "academics.Class",
+        on_delete=models.CASCADE,
+        related_name="result_publications",
+    )
+    section = models.ForeignKey(
+        "academics.Section",
+        on_delete=models.CASCADE,
+        related_name="result_publications",
+    )
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="draft")
+    published_by = models.ForeignKey(
+        "core.User",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="published_results",
+    )
+    published_at = models.DateTimeField(null=True, blank=True)
+    remarks = models.TextField(blank=True, default="")
+
+    class Meta:
+        db_table = "result_publications"
+        ordering = ["-created_at"]
+        unique_together = [("session", "class_field", "section")]
+        indexes = [
+            models.Index(fields=["status"], name="idx_pub_status"),
+            models.Index(fields=["session"], name="idx_pub_session"),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.class_field.name} - {self.section.name} ({self.session.name}): {self.status}"
+
+    def publish(self, user):
+        from django.utils import timezone
+        self.status = "published"
+        self.published_by = user
+        self.published_at = timezone.now()
+        self.save(update_fields=["status", "published_by", "published_at"])
+
+    def unpublish(self):
+        self.status = "unpublished"
+        self.published_by = None
+        self.published_at = None
+        self.save(update_fields=["status", "published_by", "published_at"])
+
+    def submit_for_review(self):
+        self.status = "under_review"
+        self.save(update_fields=["status"])

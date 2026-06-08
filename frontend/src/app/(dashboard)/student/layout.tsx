@@ -3,15 +3,17 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore, useIsHydrated } from '@/stores/auth-store';
-import { clearTokens } from '@/lib/auth/session';
+import { clearTokens } from '@/lib/api/client';
 import { Sidebar } from '@/components/layout/sidebar';
 import { Header } from '@/components/layout/header';
 import { Loading } from '@/components/ui/loading';
-import { LayoutDashboard, FileText } from 'lucide-react';
+import { LayoutDashboard, FileText, Award, User, BarChart3 } from 'lucide-react';
 
 const navItems = [
   { title: 'Dashboard', href: '/student', icon: LayoutDashboard },
   { title: 'My Results', href: '/student/results', icon: FileText },
+  { title: 'Report Card', href: '/student/report-card', icon: Award },
+  { title: 'Profile', href: '/student/profile', icon: User },
 ];
 
 export default function StudentLayout({ children }: { children: React.ReactNode }) {

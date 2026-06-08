@@ -5,12 +5,15 @@ from __future__ import annotations
 from uuid import UUID
 
 import structlog
+from django.contrib.auth import get_user_model
 from django.db import transaction
 
 from shared.base_service import BaseService
+from core.models_audit import AuditLog
 from enrollments.models import Student
 from enrollments.repositories.student_repository import StudentRepository
 
+User = get_user_model()
 logger = structlog.get_logger(__name__)
 
 
@@ -22,16 +25,57 @@ class StudentService(BaseService):
 
     @transaction.atomic
     def create(self, **kwargs) -> Student:
+        email = kwargs.pop("email", "")
+        password = kwargs.pop("password", "")
+        name = kwargs.get("name", "")
+
         student_id = Student.generate_student_id()
         self.log.info("creating_student", student_id=student_id)
-        student = self.repo.create(student_id=student_id, **kwargs)
-        student.set_default_password()
-        student.save(update_fields=["password_hash"])
+
+        # Create User account for student
+        user = User.objects.create_user(
+            email=email or f"{student_id.lower()}@student.local",
+            password=password or "temp1234",
+            role="student",
+            first_name=name.split()[0] if name else "",
+            last_name=" ".join(name.split()[1:]) if name and len(name.split()) > 1 else "",
+        )
+
+        student = self.repo.create(user=user, student_id=student_id, **kwargs)
+
+        # Set default password from DOB if not provided
+        if not password:
+            student.set_default_password()
+
+        AuditLog.log(
+            action="student_created",
+            user=user,
+            entity_type="Student",
+            entity_id=str(student.id),
+            details={"student_id": student_id, "email": user.email},
+        )
         return student
 
+    @transaction.atomic
     def update(self, student_id: UUID, **kwargs) -> Student | None:
         self.log.info("updating_student", student_id=student_id)
-        return self.repo.update(student_id, **kwargs)
+        student = self.repo.get_by_id(student_id)
+        if not student:
+            return None
+        # Update user email if changed
+        if "email" in kwargs and student.user:
+            student.user.email = kwargs.pop("email")
+            student.user.save(update_fields=["email"])
+        updated_student = self.repo.update(student_id, **kwargs)
+        if updated_student:
+            AuditLog.log(
+                action="student_updated",
+                user=student.user,
+                entity_type="Student",
+                entity_id=str(student_id),
+                details={k: str(v) for k, v in kwargs.items()},
+            )
+        return updated_student
 
     def get_by_id(self, student_id: UUID) -> Student | None:
         return self.repo.get_by_id(student_id)
@@ -44,3 +88,11 @@ class StudentService(BaseService):
 
     def generate_student_id(self) -> str:
         return Student.generate_student_id()
+
+    @transaction.atomic
+    def bulk_create(self, students_data: list[dict]) -> list[Student]:
+        created = []
+        for data in students_data:
+            student = self.create(**data)
+            created.append(student)
+        return created

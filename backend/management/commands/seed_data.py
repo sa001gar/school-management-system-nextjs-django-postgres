@@ -139,4 +139,57 @@ class Command(BaseCommand):
                 },
             )
 
+        # Create sample students
+        from enrollments.models import Student
+        from academics.models import Class, Section
+
+        students_data = [
+            ("Rahul Sharma", "2005-03-15", "Rajesh Sharma", "Priya Sharma", "9876543210", "Class 10", "A"),
+            ("Priya Patel", "2005-07-22", "Amit Patel", "Sunita Patel", "9876543211", "Class 10", "A"),
+            ("Amit Kumar", "2005-01-10", "Vijay Kumar", "Meena Kumar", "9876543212", "Class 10", "B"),
+            ("Sneha Singh", "2005-11-05", "Ravi Singh", "Kavita Singh", "9876543213", "Class 10", "B"),
+            ("Rohan Gupta", "2005-09-18", "Anil Gupta", "Ritu Gupta", "9876543214", "Class 9", "A"),
+        ]
+
+        for name, dob, father, mother, phone, class_name, section_name in students_data:
+            student_id = Student.generate_student_id()
+            user_email = f"{student_id.lower()}@student.local"
+
+            user, created = User.objects.get_or_create(
+                email=user_email,
+                defaults={
+                    "username": student_id.lower(),
+                    "role": "student",
+                    "first_name": name.split()[0],
+                    "last_name": " ".join(name.split()[1:]),
+                },
+            )
+            if created:
+                # Set default password from DOB
+                from datetime import datetime
+                dob_date = datetime.strptime(dob, "%Y-%m-%d").date()
+                default_password = dob_date.strftime("%d%m%Y")
+                user.set_password(default_password)
+                user.save()
+
+                cls = Class.objects.filter(name=class_name).first()
+                section = Section.objects.filter(name=section_name, class_ref=cls).first() if cls else None
+
+                student, _ = Student.objects.get_or_create(
+                    user=user,
+                    defaults={
+                        "student_id": student_id,
+                        "name": name,
+                        "date_of_birth": dob,
+                        "father_name": father,
+                        "mother_name": mother,
+                        "phone": phone,
+                        "admission_class": cls,
+                        "admission_session": session,
+                    },
+                )
+                self.stdout.write(self.style.SUCCESS(
+                    f"Created student: {name} ({student_id}) / {default_password}"
+                ))
+
         self.stdout.write(self.style.SUCCESS("Development data seeded successfully!"))

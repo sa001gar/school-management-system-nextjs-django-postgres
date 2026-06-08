@@ -38,7 +38,7 @@ export interface Enrollment {
   created_at: string;
 }
 
-export type EnrollmentStatus = 'active' | 'promoted' | 'retained' | 'transferred' | 'graduated' | 'dropped';
+export type EnrollmentStatus = 'active' | 'promoted' | 'retained' | 'transferred' | 'graduated' | 'dropped' | 'withdrawn';
 
 export interface ClassTeacher {
   id: string;

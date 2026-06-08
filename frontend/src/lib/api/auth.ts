@@ -39,9 +39,16 @@ export const authApi = {
       const errorData = await response.json().catch(() => ({}));
       throw new AuthError(errorData.detail || errorData.message || 'Invalid student credentials');
     }
-    const data: StudentLoginResponse = await response.json();
-    setTokens(data.access, data.refresh);
-    return data;
+    const data = await response.json();
+    // Normalize response to match StudentLoginResponse
+    const normalized: StudentLoginResponse = {
+      access: data.access,
+      refresh: data.refresh,
+      student: data.student,
+      user: data.user,
+    };
+    setTokens(normalized.access, normalized.refresh);
+    return normalized;
   },
 
   logout: async (): Promise<void> => {

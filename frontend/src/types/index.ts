@@ -1,6 +1,10 @@
 export * from './api';
 export * from './auth';
 export * from './enrollment';
+export * from './dashboard';
+export * from './notification';
+export * from './publication';
+export * from './audit';
 
 export type {
   Session,

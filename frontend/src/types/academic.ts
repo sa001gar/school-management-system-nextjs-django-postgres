@@ -13,6 +13,7 @@ export interface Class {
   name: string;
   level: number;
   created_at: string;
+  sections?: Section[];
 }
 
 export interface Section {

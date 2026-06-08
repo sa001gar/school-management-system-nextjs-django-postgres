@@ -10,25 +10,30 @@ logger = structlog.get_logger(__name__)
 
 @app.task(bind=True, queue="compute", max_retries=3, default_retry_delay=120)
 def compute_class_rankings(self, session_id: str, class_id: str | None = None) -> dict:
-    """Compute rankings for a session/class."""
+    """Compute rankings for a session/class (all sections)."""
     try:
         from reporting.services.ranking_service import RankingService
+        from academics.models import Section
+
         service = RankingService()
+        total = 0
+
         if class_id:
-            results = service.compute_class_rankings(class_id, None, session_id)
-        else:
-            # Compute for all classes in session
-            from academics.selectors.session_selector import SessionSelector
-            from academics.selectors.class_selector import ClassSelector
-            class_sel = ClassSelector()
-            classes = class_sel.list_ordered()
-            total = 0
-            for cls in classes:
-                results = service.compute_class_rankings(str(cls.id), None, session_id)
+            sections = Section.objects.filter(class_ref_id=class_id)
+            for section in sections:
+                results = service.compute_class_rankings(class_id, str(section.id), session_id)
                 total += len(results)
-            return {"status": "success", "total_ranked": total}
-        logger.info("task.rankings.success", session_id=session_id, count=len(results))
-        return {"status": "success", "count": len(results)}
+        else:
+            from academics.models import Class
+            classes = Class.objects.filter(is_active=True)
+            for cls in classes:
+                sections = Section.objects.filter(class_ref=cls)
+                for section in sections:
+                    results = service.compute_class_rankings(str(cls.id), str(section.id), session_id)
+                    total += len(results)
+
+        logger.info("task.rankings.success", session_id=session_id, count=total)
+        return {"status": "success", "count": total}
     except Exception as exc:
         logger.error("task.rankings.failed", session_id=session_id, error=str(exc))
         raise self.retry(exc=exc)

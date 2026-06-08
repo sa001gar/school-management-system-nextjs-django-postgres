@@ -16,6 +16,7 @@ from shared.exceptions import (
     MarksValidationException,
     NotFoundException,
 )
+from core.models_audit import AuditLog
 from results.models import MarksEntry
 from results.repositories.marks_entry_repository import MarksEntryRepository
 
@@ -61,7 +62,7 @@ class MarksEntryService(BaseService):
             enrollment_id=str(enrollment_id),
             subject_id=str(subject_id),
         )
-        return self.repo.create(
+        entry = self.repo.create(
             enrollment_id=enrollment_id,
             subject_id=subject_id,
             assessment_type_id=assessment_type_id,
@@ -69,6 +70,18 @@ class MarksEntryService(BaseService):
             obtained_marks=obtained_marks,
             entered_by_id=entered_by_id,
         )
+        AuditLog.log(
+            action="marks Entered",
+            entity_type="MarksEntry",
+            entity_id=str(entry.id),
+            details={
+                "enrollment_id": str(enrollment_id),
+                "subject_id": str(subject_id),
+                "full_marks": full_marks,
+                "obtained_marks": obtained_marks,
+            },
+        )
+        return entry
 
     def update_marks(
         self,
@@ -90,7 +103,17 @@ class MarksEntryService(BaseService):
             )
 
         self.log.info("marks_entry.updating", entry_id=str(entry_id))
+        old_marks = entry.obtained_marks
         updated = self.repo.update(entry_id, obtained_marks=obtained_marks)
+        AuditLog.log(
+            action="marks_updated",
+            entity_type="MarksEntry",
+            entity_id=str(entry_id),
+            details={
+                "obtained_marks": f"{old_marks} -> {obtained_marks}",
+                "full_marks": entry.full_marks,
+            },
+        )
         return updated  # type: ignore[return-value]
 
     @transaction.atomic

@@ -10,6 +10,7 @@ from django.db import transaction
 
 from shared.base_service import BaseService
 from shared.exceptions import ConflictException, NotFoundException
+from core.models_audit import AuditLog
 from enrollments.models import Enrollment
 from enrollments.repositories.enrollment_repository import EnrollmentRepository
 
@@ -36,7 +37,7 @@ class EnrollmentService(BaseService):
             self.log.warning("duplicate_enrollment", student_id=student_id, session_id=session_id)
             raise ConflictException("Student is already enrolled in this session.")
         self.log.info("enrolling_student", student_id=student_id, session_id=session_id)
-        return self.repo.create(
+        enrollment = self.repo.create(
             student_id=student_id,
             session_id=session_id,
             class_field_id=class_id,
@@ -45,6 +46,19 @@ class EnrollmentService(BaseService):
             status="active",
             **kwargs,
         )
+        AuditLog.log(
+            action="student_created",
+            entity_type="Enrollment",
+            entity_id=str(enrollment.id),
+            details={
+                "student_id": str(student_id),
+                "session_id": str(session_id),
+                "class_id": str(class_id),
+                "section_id": str(section_id),
+                "roll_no": roll_no,
+            },
+        )
+        return enrollment
 
     @transaction.atomic
     def promote(
@@ -57,9 +71,21 @@ class EnrollmentService(BaseService):
     ) -> Enrollment:
         enrollment = self.repo.get_by_id_or_raise(enrollment_id, "Enrollment not found.")
         self.log.info("promoting_enrollment", enrollment_id=enrollment_id)
-        return enrollment.promote_to_next_class(
+        promoted = enrollment.promote_to_next_class(
             new_class_id, new_section_id, new_session_id, new_roll_no
         )
+        AuditLog.log(
+            action="student_promoted",
+            entity_type="Enrollment",
+            entity_id=str(enrollment_id),
+            details={
+                "new_class_id": str(new_class_id),
+                "new_section_id": str(new_section_id),
+                "new_session_id": str(new_session_id),
+                "new_roll_no": new_roll_no,
+            },
+        )
+        return promoted
 
     @transaction.atomic
     def retain(
@@ -70,13 +96,29 @@ class EnrollmentService(BaseService):
     ) -> Enrollment:
         enrollment = self.repo.get_by_id_or_raise(enrollment_id, "Enrollment not found.")
         self.log.info("retaining_enrollment", enrollment_id=enrollment_id)
-        return enrollment.retain_in_same_class(new_session_id, new_roll_no)
+        retained = enrollment.retain_in_same_class(new_session_id, new_roll_no)
+        AuditLog.log(
+            action="student_retained",
+            entity_type="Enrollment",
+            entity_id=str(enrollment_id),
+            details={
+                "new_session_id": str(new_session_id),
+                "new_roll_no": new_roll_no,
+            },
+        )
+        return retained
 
     @transaction.atomic
     def transfer_out(self, enrollment_id: UUID, remarks: str = "") -> None:
         enrollment = self.repo.get_by_id_or_raise(enrollment_id, "Enrollment not found.")
         self.log.info("transferring_enrollment", enrollment_id=enrollment_id)
         enrollment.transfer_out(remarks)
+        AuditLog.log(
+            action="student_transferred",
+            entity_type="Enrollment",
+            entity_id=str(enrollment_id),
+            details={"remarks": remarks},
+        )
 
     @transaction.atomic
     def bulk_enroll(

@@ -5,6 +5,7 @@ export interface AssessmentCategory {
   name: string;
   code: string;
   category_type: string;
+  display_order: number;
   is_active: boolean;
   created_at: string;
 }
@@ -13,6 +14,16 @@ export interface MarksDistribution {
   id: string;
   class_id: string;
   assessment_category_id: string;
+  full_marks: number;
+  created_at: string;
+}
+
+export interface AssessmentWeightage {
+  id: string;
+  assessment_type_id: string;
+  class_id: string;
+  subject_id: string;
+  weightage: number;
   full_marks: number;
   created_at: string;
 }
@@ -37,5 +48,18 @@ export const assessmentsApi = {
   },
   bulkUpdateMarksDistribution: async (data: { class_id: string; distributions: Array<{ assessment_category_id: string; full_marks: number }> }): Promise<MarksDistribution[]> => {
     return api.post<MarksDistribution[]>('/core-marks-distribution/bulk-update/', data);
+  },
+  getWeightages: async (classId: string, subjectId?: string): Promise<AssessmentWeightage[]> => {
+    const params: Record<string, string> = { class_id: classId };
+    if (subjectId) params.subject_id = subjectId;
+    const response = await api.get<{ results?: AssessmentWeightage[] } | AssessmentWeightage[]>('/assessment-weightages/', params);
+    return Array.isArray(response) ? response : (response.results || []);
+  },
+  setWeightage: async (data: {
+    class_id: string;
+    subject_id: string;
+    weightages: Array<{ assessment_type_id: string; full_marks: number; weightage: number }>;
+  }): Promise<void> => {
+    await api.post('/assessment-weightages/bulk-update/', data);
   },
 };

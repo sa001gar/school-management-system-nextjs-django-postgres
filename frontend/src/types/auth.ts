@@ -19,26 +19,32 @@ export interface AdminProfile {
   email: string;
 }
 
+export interface StudentProfile {
+  id: string;
+  student_id: string;
+  name: string;
+  email?: string;
+}
+
 export interface LoginResponse {
   access: string;
   refresh: string;
   user: User;
   teacher: TeacherProfile | null;
   admin: AdminProfile | null;
+  student: StudentProfile | null;
 }
 
 export interface StudentLoginResponse {
   access: string;
   refresh: string;
-  student: {
-    id: string;
-    name: string;
-    student_id: string;
-  };
+  student: StudentProfile;
+  user: User;
 }
 
 export interface CurrentUserResponse {
   user: User;
   teacher: TeacherProfile | null;
   admin: AdminProfile | null;
+  student: StudentProfile | null;
 }

@@ -3,16 +3,18 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore, useIsHydrated } from '@/stores/auth-store';
-import { validateSession, clearTokens } from '@/lib/auth/session';
+import { clearTokens } from '@/lib/api/client';
 import { Sidebar } from '@/components/layout/sidebar';
 import { Header } from '@/components/layout/header';
 import { Loading } from '@/components/ui/loading';
-import { LayoutDashboard, BookOpen, FileText } from 'lucide-react';
+import { LayoutDashboard, BookOpen, FileText, ClipboardList, Users } from 'lucide-react';
 
 const navItems = [
   { title: 'Dashboard', href: '/teacher', icon: LayoutDashboard },
   { title: 'Marks Entry', href: '/teacher/marks', icon: BookOpen },
   { title: 'Marksheet', href: '/teacher/marksheet', icon: FileText },
+  { title: 'Reports', href: '/teacher/reports', icon: ClipboardList },
+  { title: 'Students', href: '/teacher/students', icon: Users },
 ];
 
 export default function TeacherLayout({ children }: { children: React.ReactNode }) {
@@ -27,17 +29,7 @@ export default function TeacherLayout({ children }: { children: React.ReactNode 
       router.push('/login/teacher');
       return;
     }
-    const validate = async () => {
-      const { valid } = await validateSession();
-      if (!valid) {
-        clearTokens();
-        logout();
-        router.push('/login/teacher');
-        return;
-      }
-      setIsValidating(false);
-    };
-    validate();
+    setIsValidating(false);
   }, [isHydrated, isAuthenticated, user?.role]);
 
   if (!isHydrated || isValidating) return <Loading message="Verifying session..." />;

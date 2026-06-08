@@ -13,6 +13,13 @@ from shared.base_model import BaseModel
 class Student(BaseModel):
     """Student record for the RMS system."""
 
+    user = models.OneToOneField(
+        "core.User",
+        on_delete=models.CASCADE,
+        related_name="student_profile",
+        null=True,
+        blank=True,
+    )
     student_id = models.CharField(max_length=20, unique=True, editable=False)
     name = models.CharField(max_length=255)
     date_of_birth = models.DateField()
@@ -40,7 +47,6 @@ class Student(BaseModel):
         blank=True,
         related_name="admitted_students",
     )
-    password_hash = models.CharField(max_length=128, blank=True, default="")
     is_active = models.BooleanField(default=True)
 
     class Meta:
@@ -50,15 +56,11 @@ class Student(BaseModel):
     def __str__(self) -> str:
         return f"{self.name} ({self.student_id})"
 
-    def set_password(self, raw_password: str) -> None:
-        self.password_hash = make_password(raw_password)
-
-    def check_password(self, raw_password: str) -> bool:
-        return check_password(raw_password, self.password_hash)
-
-    def set_default_password(self) -> None:
+    def set_default_password(self) -> str:
         default = self.date_of_birth.strftime("%d%m%Y")
-        self.set_password(default)
+        self.user.set_password(default)
+        self.user.save()
+        return default
 
     @staticmethod
     def generate_student_id() -> str:

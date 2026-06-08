@@ -2,7 +2,7 @@
 
 from rest_framework import serializers
 
-from results.models import MarksEntry, SubjectResult
+from results.models import MarksEntry, SubjectResult, ResultPublication
 
 
 class MarksEntrySerializer(serializers.ModelSerializer):
@@ -96,3 +96,32 @@ class SubjectResultSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
         read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class ResultPublicationSerializer(serializers.ModelSerializer):
+    """Serializer for ResultPublication model."""
+
+    class_name = serializers.CharField(source="class_field.name", read_only=True)
+    section_name = serializers.CharField(source="section.name", read_only=True)
+    published_by_email = serializers.CharField(
+        source="published_by.email", read_only=True, default=None
+    )
+
+    class Meta:
+        model = ResultPublication
+        fields = [
+            "id",
+            "session",
+            "class_field",
+            "class_name",
+            "section",
+            "section_name",
+            "status",
+            "published_by",
+            "published_by_email",
+            "published_at",
+            "remarks",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "published_by", "published_at", "created_at", "updated_at"]
