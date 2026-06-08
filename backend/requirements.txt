@@ -1,5 +1,5 @@
 # Django and core packages
-Django>=5.0,<6.1
+Django>=6.0
 djangorestframework>=3.14.0
 django-ninja>=1.0.0
 
